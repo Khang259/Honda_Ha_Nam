@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+pydantic
+httpx
+requests
+numpy
+Pillow
+opencv-python
+pydantic-settings
+python-dotenv
+pymongo
