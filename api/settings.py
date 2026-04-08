@@ -31,14 +31,12 @@ def _get_env_float(key: str, default: float) -> float:
 
 @dataclass(frozen=True)
 class APISettings:
-    # Backend BE base URL (where /node_id/{area} lives)
-    BE_BASE_URL: str = _get_env_str("BE_BASE_URL", "http://localhost:8000")
     AREA_NAME: str = _get_env_str("AREA_NAME", "AE5")
-
-    # HTTP fetch timeouts/caching
-    BE_TIMEOUT_S: float = _get_env_float("BE_TIMEOUT_S", 5.0)
-    CONFIG_CACHE_TTL_S: float = _get_env_float("CONFIG_CACHE_TTL_S", 10.0)
-
+    
+    # MongoDB
+    MongoDB_URL: str = _get_env_str("MongoDB_URL", "mongodb://localhost:27017/")
+    MongoDB_DB: str = _get_env_str("MongoDB_DB", "HONDA_HN")
+    
     # Uvicorn runtime
     API_SERVER_HOST: str = _get_env_str("API_SERVER_HOST", "0.0.0.0")
     API_SERVER_PORT: int = _get_env_int("API_SERVER_PORT", 5000)

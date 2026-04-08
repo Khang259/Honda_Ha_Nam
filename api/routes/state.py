@@ -22,17 +22,3 @@ async def get_state_points() -> Dict[str, Any]:
         }
 
     return {"success": True, "points": points_dict}
-
-
-@router.get("/state/ready-lists")
-async def get_ready_lists() -> Dict[str, Any]:
-    """Get ready_start_list and ready_end_list."""
-    if not api_state.state_manager:
-        return {"error": "State manager not initialized", "success": False}
-
-    return {
-        "success": True,
-        "ready_start_list": list(api_state.state_manager.ready_start_list),
-        "ready_end_list": list(api_state.state_manager.ready_end_list),
-    }
-

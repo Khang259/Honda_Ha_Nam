@@ -51,8 +51,7 @@ class RuntimeService:
         if self._running:
             return self.status()
 
-        cache = await camera_config_service.refresh(area)
-        cameras = cache.cameras
+        cameras = await camera_config_service.refresh(area)
 
         # Keep config.CAMERAS in sync for scripts/tests that read the global list.
         import config as _ai_config
@@ -112,8 +111,7 @@ class RuntimeService:
         self._started_at = time.time()
         self._area = area.upper()
         self._config_meta = {
-            "source": cache.source,
-            "fetched_at": cache.fetched_at,
+            "cameras_count": len(cameras),
         }
         return self.status()
 
@@ -183,8 +181,8 @@ class RuntimeService:
         status = RuntimeStatus(
             running=self._running,
             area=self._area,
-            config_source=self._config_meta.get("source"),
-            config_fetched_at=self._config_meta.get("fetched_at"),
+            config_source="mongo",
+            config_fetched_at=None,
             cameras_total=cameras_total,
             cameras_enabled=cameras_enabled,
             cameras_alive=cameras_alive,
@@ -196,7 +194,7 @@ class RuntimeService:
             "area": status.area,
             "config": {
                 "source": status.config_source,
-                "fetched_at": status.config_fetched_at,
+                "cameras_count": self._config_meta.get("cameras_count", 0),
             },
             "cameras": {
                 "total": status.cameras_total,

@@ -4,7 +4,6 @@ Entry point cho API server - quản lý state và nhận requests từ worker/UI
 """
 import signal
 import sys
-import asyncio
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -16,8 +15,6 @@ import uvicorn
 
 from config import API_SERVER_HOST, API_SERVER_PORT, API_LOG_LEVEL
 from api import api_server
-from api.settings import settings
-from api.services.runtime_service import runtime_service
 from utils.setup_log import setup_logger
 
 logger = setup_logger("api_main", "logs/api_main/log")
@@ -29,7 +26,7 @@ class APIManager:
         self.running = False
     
     def initialize(self):
-        asyncio.run(runtime_service.start(settings.AREA_NAME))
+        # Startup is handled by FastAPI lifespan (see api/app_factory.py).
         self.running = True
         logger.info("API server runtime initialized")
     
@@ -41,7 +38,7 @@ class APIManager:
         logger.info("STARTING API SERVER SHUTDOWN")
         self.running = False
 
-        runtime_service.stop()
+        # Shutdown is handled by FastAPI lifespan.
         logger.info("API SERVER SHUTDOWN COMPLETED")
         sys.exit(0)
 

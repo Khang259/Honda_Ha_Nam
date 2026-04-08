@@ -88,23 +88,8 @@ class APIClient:
             Dict với format: {"ready_start_list": [...], "ready_end_list": [...]}
             Hoặc None nếu request thất bại
         """
-        try:
-            response = self.client.get(f"{self.api_url}/state/ready-lists")
-            
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("success"):
-                    return {
-                        "ready_start_list": set(data.get("ready_start_list", [])),
-                        "ready_end_list": set(data.get("ready_end_list", []))
-                    }
-            
-            logger.error(f"GET ready lists failed: {response.status_code}")
-            return None
-            
-        except Exception as e:
-            logger.error(f"GET ready lists error: {e}")
-            return None
+        logger.warning("GET /state/ready-lists was removed; returning empty lists")
+        return {"ready_start_list": set(), "ready_end_list": set()}
     
     def health_check(self) -> bool:
         """

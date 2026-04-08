@@ -7,10 +7,6 @@ In mode "API+Worker merged", commands are executed in-process by calling
 """
 from typing import Dict, Any
 from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
-import asyncio
-import json
-import time
 
 import api.state as api_state
 from utils.setup_log import setup_logger
@@ -84,92 +80,9 @@ async def toggle_node_flag(node_id: str) -> Dict[str, Any]:
     return {"error": "Node not found", "success": False}
 
 
-# ============ SSE Streaming ============
-
-@router.get("/{zone}/stream")
-async def stream_zone_state(zone: str):
-    """
-    SSE stream trả về state/flag của các node_id trong zone.
-    Gửi event khi có thay đổi hoặc heartbeat mỗi 5s.
-    """
-    
-    async def event_generator():
-        from config import VALIDATE_PAIRS_BY_ZONE
-        
-        # Lấy danh sách node_id trong zone này
-        zone_pairs = VALIDATE_PAIRS_BY_ZONE.get(zone.upper(), [])
-        zone_node_ids = set()
-        for pair in zone_pairs:
-            for node_id in pair:
-                zone_node_ids.add(node_id)
-        
-        if not zone_node_ids:
-            logger.warning(f"No nodes found for zone {zone}")
-            yield f"data: {json.dumps({'error': 'Zone not found'})}\n\n"
-            return
-        
-        logger.info(f"SSE stream started for zone {zone} with {len(zone_node_ids)} nodes")
-        
-        last_states = {}
-        last_heartbeat = time.time()
-        
-        try:
-            while True:
-                if not api_state.state_manager:
-                    await asyncio.sleep(1)
-                    continue
-                
-                current_time = time.time()
-                
-                # Collect current states
-                current_states = {}
-                for node_id in zone_node_ids:
-                    if node_id in api_state.state_manager.points:
-                        data = api_state.state_manager.points[node_id]
-                        current_states[node_id] = {
-                            "state": data["state"],
-                            "flag": data["flag"]
-                        }
-                
-                # Send event if changed or heartbeat (every 5s)
-                send_event = False
-                if current_states != last_states:
-                    send_event = True
-                    logger.debug(f"State changed for zone {zone}")
-                elif (current_time - last_heartbeat) >= 5.0:
-                    send_event = True
-                    last_heartbeat = current_time
-                
-                if send_event:
-                    event_data = {
-                        "zone": zone.upper(),
-                        "nodes": current_states,
-                        "timestamp": current_time
-                    }
-                    yield f"data: {json.dumps(event_data)}\n\n"
-                    last_states = current_states.copy()
-                
-                await asyncio.sleep(0.5)
-        
-        except asyncio.CancelledError:
-            logger.info(f"SSE stream cancelled for zone {zone}")
-        except Exception as e:
-            logger.error(f"SSE stream error for zone {zone}: {e}")
-    
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Disable nginx buffering
-        }
-    )
-
-
-@router.get("/{zone}/status")
-async def get_zone_status(zone: str) -> Dict[str, Any]:
-    """HTTP GET fallback - trả về snapshot state của zone."""
+@router.get("/{zone}")
+async def get_zone(zone: str) -> Dict[str, Any]:
+    """Trả về snapshot state + flags của các node_id trong zone."""
     from config import VALIDATE_PAIRS_BY_ZONE
     
     if not api_state.state_manager:
@@ -184,38 +97,15 @@ async def get_zone_status(zone: str) -> Dict[str, Any]:
     if not zone_node_ids:
         return {"error": "Zone not found", "success": False}
     
-    result = {}
+    nodes = {}
+    flags = {}
     for node_id in zone_node_ids:
         if node_id in api_state.state_manager.points:
             data = api_state.state_manager.points[node_id]
-            result[node_id] = {
+            nodes[node_id] = {
                 "state": data["state"],
                 "flag": data["flag"]
             }
+            flags[node_id] = data["flag"]
     
-    return {"success": True, "zone": zone.upper(), "nodes": result}
-
-
-@router.get("/{zone}/flag")
-async def get_zone_flags(zone: str) -> Dict[str, Any]:
-    """Get only flags of nodes in zone (alias for status with flag filter)."""
-    from config import VALIDATE_PAIRS_BY_ZONE
-    
-    if not api_state.state_manager:
-        return {"error": "State manager not initialized", "success": False}
-    
-    zone_pairs = VALIDATE_PAIRS_BY_ZONE.get(zone.upper(), [])
-    zone_node_ids = set()
-    for pair in zone_pairs:
-        for node_id in pair:
-            zone_node_ids.add(node_id)
-    
-    if not zone_node_ids:
-        return {"error": "Zone not found", "success": False}
-    
-    result = {}
-    for node_id in zone_node_ids:
-        if node_id in api_state.state_manager.points:
-            result[node_id] = api_state.state_manager.points[node_id]["flag"]
-    
-    return {"success": True, "zone": zone.upper(), "flags": result}
+    return {"success": True, "zone": zone.upper(), "nodes": nodes, "flags": flags}

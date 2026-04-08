@@ -37,11 +37,7 @@ class StateProxy:
             if points_data:
                 for node_id, data in points_data.items():
                     self.points[node_id].update(data)
-            
-            ready_lists = self.api_client.get_ready_lists()
-            if ready_lists:
-                self.ready_start_list = ready_lists.get("ready_start_list", set())
-                self.ready_end_list = ready_lists.get("ready_end_list", set())
+            # /state/ready-lists đã bị loại bỏ; UI không còn poll ready lists.
             
             self.last_update = now
         except Exception as e:

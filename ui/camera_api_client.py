@@ -100,7 +100,7 @@ class CameraAPIClient:
             Dict with nodes state/flag
         """
         try:
-            resp = self.client.get(f"{self.api_url}/cameras/{zone}/status")
+            resp = self.client.get(f"{self.api_url}/cameras/{zone}")
             return resp.json()
         except Exception as e:
             logger.error(f"Error getting zone {zone} status: {e}")

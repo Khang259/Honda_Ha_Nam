@@ -9,11 +9,11 @@ API_LOG_LEVEL = app_settings.API_LOG_LEVEL
 THRESHOLD_DETECT = 0.4
 THRESHOLD_COVERAGE = 0.5
 
-ICS_URL = "http://192.168.1.100:7001/ics/taskOrder/addTask"  # Replace with actual URL
+ICS_URL = "http://192.168.1.30:7000/ics/taskOrder/addTask"  # Replace with actual URL
 PROCESSING_LOOP_DELAY = 1  # seconds
 
 # Snapshot configuration
-ENABLE_SNAPSHOTS = True
+ENABLE_SNAPSHOTS = False
 SNAPSHOT_DIR = "snapshots"
 SNAPSHOT_QUALITY = 95  # JPEG quality (0-100)
 
