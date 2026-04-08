@@ -63,7 +63,7 @@ async def stop_zone_cameras(zone: str) -> Dict[str, Any]:
         api_state.inference_engine.pause()
     return {"success": True, "message": f"Zone {z} disabled", "enabled": enabled_count}
 
-
+#This route to reset flag manual delete the current flag and order_id from array
 @router.post("/flag/{node_id}")
 async def toggle_node_flag(node_id: str) -> Dict[str, Any]:
     """Toggle flag của node_id trong StateManager."""

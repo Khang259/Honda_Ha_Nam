@@ -7,7 +7,7 @@ from api.schemas.payloads import WebhookPayload
 
 router = APIRouter()
 
-
+#This services used to reset flag from webhook from external server
 @router.post("/delete-flag")
 async def delete_flag(payload: WebhookPayload) -> Dict[str, Any]:
     """Receive webhook from external server to reset flags."""

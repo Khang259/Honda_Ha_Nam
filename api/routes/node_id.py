@@ -45,14 +45,14 @@ async def get_node_id_by_area(area: str) -> Dict[str, Any]:
     items = await _client.get_by_area(area)
     return {"success": True, "area": area.upper(), "items": items}
 
-
+#TODO: check this if this right schema
 @router.post("")
 async def create_node_id(camera_doc: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
     """Insert one camera config document into MongoDB."""
     inserted_id = await _client.create(camera_doc)
     return {"success": True, "inserted_id": inserted_id}
 
-
+#TODO: check this if this right schema
 @router.put("/{camera_id}")
 async def update_node_id_by_camera_id(
     camera_id: int = Path(..., description="cameraId of the document"),

@@ -15,10 +15,11 @@ async def get_state_points() -> Dict[str, Any]:
 
     points_dict: Dict[str, Any] = {}
     for node_id, data in api_state.state_manager.points.items():
+        
         points_dict[node_id] = {
             "state": data["state"],
-            "time": data["time"],
+            "time": data["time"].strftime("%H:%M:%S"), #changing for easy to read
             "flag": data["flag"],
         }
 
-    return {"success": True, "points": points_dict}
+    return {"code": 1000, "message": "Success", "points": points_dict}

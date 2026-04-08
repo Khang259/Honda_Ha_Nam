@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -12,24 +11,27 @@ from api.routes.state import router as state_router
 from api.routes.cameras import router as cameras_router
 from api.routes.runtime import router as runtime_router
 from api.routes.node_id import router as node_id_router
+
 from api.core.database import close_mongo_connection, connect_to_mongo
 from api.services.runtime_service import runtime_service
+
 from api.settings import settings
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: connect MongoDB and start runtime inside Uvicorn's event loop.
     await connect_to_mongo(settings.MongoDB_URL, settings.MongoDB_DB)
     await runtime_service.start(settings.AREA_NAME)
     yield
-    # Shutdown: stop runtime and close MongoDB connection.
     runtime_service.stop()
     await close_mongo_connection()
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Honda AI Monitoring API", version="1.0.0", lifespan=lifespan)
+    app = FastAPI(title="Honda AI Monitoring", 
+                  version="1.0.0", 
+                  lifespan=lifespan,
+                  description="Honda AI Monitoring API")
 
     app.add_middleware(
         CORSMiddleware,
