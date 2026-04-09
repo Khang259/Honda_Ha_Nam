@@ -11,7 +11,7 @@ from api.routes.state import router as state_router
 from api.routes.cameras import router as cameras_router
 from api.routes.runtime import router as runtime_router
 from api.routes.node_id import router as node_id_router
-
+from api.routes.pairs import router as pairs_router
 from api.core.database import close_mongo_connection, connect_to_mongo
 from api.services.runtime_service import runtime_service
 
@@ -45,9 +45,10 @@ def create_app() -> FastAPI:
     app.include_router(detections_router)
     app.include_router(state_router)
     app.include_router(delete_flag_router)
-    app.include_router(cameras_router)
+    app.include_router(cameras_router, prefix="/engine-control", tags=["engine-control"])
     app.include_router(runtime_router)
-    app.include_router(node_id_router)
+    app.include_router(node_id_router, prefix="/node-id", tags=["node-id"])
+    app.include_router(pairs_router, prefix="/pairs", tags=["pairs"])
 
     return app
 

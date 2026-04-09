@@ -1,5 +1,6 @@
 from __future__ import annotations
-from pydantic import BaseSettings, SettingsConfigDict, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 
 class Settings(BaseSettings):
     #Load environment variables from .env file
@@ -15,9 +16,9 @@ class Settings(BaseSettings):
     MongoDB_DB: str = Field(default="HONDA_HN")
     
     # Uvicorn runtime
-    API_SERVER_HOST: str = Field(default="0.0.0.0")
-    API_SERVER_PORT: int = Field(default=5000)
-    API_LOG_LEVEL: str = Field(default="info")
+    AI_SERVER_HOST: str = Field(default="0.0.0.0")
+    AI_SERVER_PORT: int = Field(default=5000)
+    AI_LOG_LEVEL: str = Field(default="info")
 
 
 settings = Settings()

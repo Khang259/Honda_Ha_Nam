@@ -23,7 +23,7 @@ from core.camera_manager import CameraManager
 from core.inference_engine import InferenceEngine
 
 import api.state as api_state
-from api.services.camera_config_service import camera_config_service
+from api.services.camera_config_service import NodeIdConfigService
 
 
 @dataclass
@@ -51,7 +51,7 @@ class RuntimeService:
         if self._running:
             return self.status()
 
-        cameras = await camera_config_service.refresh(area)
+        cameras = await NodeIdConfigService().refresh(area)
 
         # Keep config.CAMERAS in sync for scripts/tests that read the global list.
         import config as _ai_config

@@ -1,37 +1,15 @@
 """
-CRUD APIs for MongoDB `node_id` collection.
-
-These endpoints expose the same operations as `MongoCameraClient` so other
-services/tools can manage camera configs without going through BE.
 """
 
 from __future__ import annotations
-
 from typing import Any, Dict, List, Optional
-
 from fastapi import APIRouter, Body, Path, Query
+from api.schemas.node_id import NodeIdCreate, NodeIdUpdate
+from api.clients.mongo_node_id_client import MongoNodeIdClient
 
-from api.clients.mongo_camera_client import MongoCameraClient
+router = APIRouter()
 
-router = APIRouter(prefix="/node-id", tags=["node_id"])
-
-_client = MongoCameraClient(collection_name="node_id")
-
-
-@router.get("")
-async def get_node_id(area: Optional[str] = Query(default=None, description="Filter by area_name")) -> Dict[str, Any]:
-    """
-    Get camera configs from MongoDB.
-
-    - If `area` is provided: returns only that area's cameras.
-    - Else: returns all cameras.
-    """
-    if area:
-        items = await _client.get_by_area(area)
-        return {"success": True, "area": area.upper(), "items": items}
-    items = await _client.get_all()
-    return {"success": True, "items": items}
-
+_client = MongoNodeIdClient(collection_name="node_id")
 
 @router.get("/all")
 async def get_node_id_all() -> Dict[str, Any]:
@@ -45,25 +23,41 @@ async def get_node_id_by_area(area: str) -> Dict[str, Any]:
     items = await _client.get_by_area(area)
     return {"success": True, "area": area.upper(), "items": items}
 
-#TODO: check this if this right schema
-@router.post("")
-async def create_node_id(camera_doc: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    """Insert one camera config document into MongoDB."""
-    inserted_id = await _client.create(camera_doc)
-    return {"success": True, "inserted_id": inserted_id}
+@router.post("/create-node-id")
+async def create_node_id(payload: List[NodeIdCreate] = Body(...)) -> Dict[str, Any]:
+    """
+    Insert nhiều camera config documents vào MongoDB.
+    Trả về số lượng tạo thành công và danh sách cameraId bị trùng (nếu có).
+    """
+    camera_docs = [item.model_dump() for item in payload]
+    inserted_count, duplicate_ids = await _client.create_many(camera_docs)
+    
+    if duplicate_ids:
+        return {
+            "code": 1001,
+            "message": f"Inserted {inserted_count} node_id(s), {len(duplicate_ids)} duplicate(s)",
+            "count": inserted_count,
+            "duplicate_camera_ids": duplicate_ids
+        }
+    
+    return {
+        "code": 1000,
+        "message": f"Created {inserted_count} node_id(s) successfully",
+        "count": inserted_count
+    }
 
-#TODO: check this if this right schema
-@router.put("/{camera_id}")
+@router.put("/update-node-id/{camera_id}")
 async def update_node_id_by_camera_id(
     camera_id: int = Path(..., description="cameraId of the document"),
-    update_data: Dict[str, Any] = Body(...),
+    payload: NodeIdUpdate = Body(...),
 ) -> Dict[str, Any]:
     """Update one camera config document by cameraId."""
+    update_data = payload.model_dump(exclude_unset=True)
     ok = await _client.update_by_camera_id(camera_id, update_data)
     return {"success": ok, "cameraId": camera_id}
 
 
-@router.delete("/{camera_id}")
+@router.delete("/delete-node-id/{camera_id}")
 async def delete_node_id_by_camera_id(camera_id: int = Path(..., description="cameraId of the document")) -> Dict[str, Any]:
     """Delete one camera config document by cameraId."""
     ok = await _client.delete_by_camera_id(camera_id)

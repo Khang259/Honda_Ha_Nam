@@ -11,9 +11,9 @@ from fastapi import APIRouter
 import api.state as api_state
 from utils.setup_log import setup_logger
 
-logger = setup_logger("cameras_routes", "logs/cameras_routes/log")
+logger = setup_logger("engine_control_routes", "logs/engine_control_routes/log")
 
-router = APIRouter(prefix="/cameras", tags=["cameras"])
+router = APIRouter()
 
 
 # ============ Camera Control ============
