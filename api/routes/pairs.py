@@ -1,27 +1,12 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 
 from api.clients.mongo_pair_client import MongoPairClient
+from api.schemas.pair import AddPairsPayload, DeletePairsPayload
 
 router = APIRouter()
 pair_client = MongoPairClient()
-
-
-class PairItem(BaseModel):
-    start: str
-    end: Optional[str] = None
-
-
-class AreaPairsPayload(BaseModel):
-    area_name: str
-    pairs: List[PairItem]
-
-
-class DeletePairsPayload(BaseModel):
-    area_name: str
-    pairs: List[PairItem]
 
 
 @router.get("/all", response_model=List[Dict[str, Any]])
@@ -31,44 +16,53 @@ async def get_all_pairs():
     return docs
 
 
-@router.get("/area/{area_name}", response_model=Dict[str, Any])
+@router.get("/{area_name}", response_model=List[Dict[str, Any]])
 async def get_pairs_by_area(area_name: str):
     """Lấy validate pairs theo area_name."""
-    doc = await pair_client.get_pairs_by_area(area_name)
-    if not doc:
-        raise HTTPException(status_code=404, detail=f"Area {area_name} not found")
-    return doc
+    docs = await pair_client.get_pairs_by_area(area_name)
+    return docs
 
 
-@router.post("/create", response_model=Dict[str, str])
-async def create_area(payload: AreaPairsPayload):
-    """Tạo mới area với pairs. Lỗi 400 nếu area đã tồn tại."""
-    try:
-        pairs_dict = [p.model_dump() for p in payload.pairs]
-        inserted_id = await pair_client.create_area(payload.area_name, pairs_dict)
-        return {"message": f"Area {payload.area_name} created", "id": inserted_id}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.put("/update", response_model=Dict[str, str])
-async def update_area(payload: AreaPairsPayload):
-    """Cập nhật toàn bộ pairs cho area đã tồn tại. Lỗi 404 nếu area không tồn tại."""
+@router.post("/add")
+async def add_pairs(payload: AddPairsPayload) -> Dict[str, Any]:
+    """
+    Thêm 1 hoặc nhiều pairs vào hệ thống.
+    Nếu có duplicate (trùng start-end), sẽ skip và trả về danh sách duplicates.
+    """
     pairs_dict = [p.model_dump() for p in payload.pairs]
-    success = await pair_client.update_area(payload.area_name, pairs_dict)
-    if not success:
-        raise HTTPException(status_code=404, detail=f"Area {payload.area_name} not found")
-    return {"message": f"Area {payload.area_name} updated"}
+    inserted_count, duplicate_pairs = await pair_client.add_pairs(
+        payload.area_name, pairs_dict
+    )
+
+    if duplicate_pairs:
+        return {
+            "code": 1001,
+            "message": f"Inserted {inserted_count} pair(s), {len(duplicate_pairs)} duplicate(s) skipped",
+            "count": inserted_count,
+            "duplicates": duplicate_pairs,
+        }
+
+    return {
+        "code": 1000,
+        "message": f"Inserted {inserted_count} pair(s) successfully",
+        "count": inserted_count,
+    }
 
 
-@router.delete("/pairs", response_model=Dict[str, str])
-async def delete_pairs(payload: DeletePairsPayload):
-    """Xóa 1 hoặc nhiều pairs cụ thể trong area."""
+@router.delete("/delete")
+async def delete_pairs(payload: DeletePairsPayload) -> Dict[str, Any]:
+    """Xóa 1 hoặc nhiều pairs cụ thể theo start và end."""
     pairs_dict = [p.model_dump() for p in payload.pairs]
-    success = await pair_client.delete_pairs(payload.area_name, pairs_dict)
-    if not success:
+    deleted_count = await pair_client.delete_pairs(pairs_dict)
+
+    if deleted_count == 0:
         raise HTTPException(
             status_code=404,
-            detail=f"Area {payload.area_name} not found or pairs not matched",
+            detail="No matching pairs found to delete",
         )
-    return {"message": f"Deleted {len(pairs_dict)} pairs from area {payload.area_name}"}
+
+    return {
+        "code": 1000,
+        "message": f"Deleted {deleted_count} pair(s) successfully",
+        "count": deleted_count,
+    }

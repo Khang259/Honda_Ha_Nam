@@ -1,9 +1,12 @@
 """
 MongoDB client for validate pairs
+Thiết kế mới: 1 document = 1 pair với unique index (start, end)
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
+from pymongo.errors import BulkWriteError
 
 from api.core.database import get_collection
 from utils.setup_log import setup_logger
@@ -18,95 +21,94 @@ class MongoPairClient:
         self._collection_name = collection_name
 
     async def get_all_pairs(self) -> List[Dict[str, Any]]:
-        """Lấy tất cả validate pairs (tất cả area) từ Mongo."""
+        """Lấy tất cả validate pairs từ Mongo."""
         col = get_collection(self._collection_name)
-        cursor = col.find({}, {"_id": 0}).sort("area_name", 1)
+        cursor = col.find({}, {"_id": 0}).sort([("area_name", 1), ("start", 1)])
         docs = await cursor.to_list(length=None)
+        logger.info(f"Fetched {len(docs)} pairs (all areas)")
         return [doc for doc in docs if isinstance(doc, dict)]
 
-    async def get_pairs_by_area(self, area_name: str) -> Optional[Dict[str, Any]]:
-        """Lấy validate pairs theo area từ Mongo. Trả về 1 document hoặc None."""
+    async def get_pairs_by_area(self, area_name: str) -> List[Dict[str, Any]]:
+        """Lấy validate pairs theo area từ Mongo."""
         col = get_collection(self._collection_name)
-        doc = await col.find_one({"area_name": area_name.upper()}, {"_id": 0})
-        if doc:
-            logger.info(f"Fetched pairs for area {area_name}: {len(doc.get('pairs', []))} pairs")
-        else:
-            logger.warning(f"No pairs found for area {area_name}")
-        return doc
+        cursor = col.find(
+            {"area_name": area_name.upper()}, {"_id": 0}
+        ).sort("start", 1)
+        docs = await cursor.to_list(length=None)
+        logger.info(f"Fetched {len(docs)} pairs for area {area_name}")
+        return [doc for doc in docs if isinstance(doc, dict)]
 
-    async def create_area(
+    async def add_pairs(
         self, area_name: str, pairs: List[Dict[str, Optional[str]]]
-    ) -> str:
+    ) -> Tuple[int, List[Dict[str, Optional[str]]]]:
         """
-        Tạo mới area với pairs. Raise error nếu area đã tồn tại.
-        pairs: list[{start: str, end: str|None}]
+        Thêm 1 hoặc nhiều pairs vào Mongo.
+        Trả về (số lượng inserted, list pairs bị duplicate).
+        Sử dụng ordered=False để insert phần hợp lệ khi có lỗi.
         """
         col = get_collection(self._collection_name)
         now = datetime.now(timezone.utc)
-        
-        existing = await col.find_one({"area_name": area_name.upper()})
-        if existing:
-            raise ValueError(f"Area {area_name} already exists")
-        
-        doc = {
-            "area_name": area_name.upper(),
-            "pairs": pairs,
-            "created_at": now,
-            "updated_at": now,
-        }
-        result = await col.insert_one(doc)
-        logger.info(f"Created area {area_name} with {len(pairs)} pairs")
-        return str(result.inserted_id)
 
-    async def update_area(
-        self, area_name: str, pairs: List[Dict[str, Optional[str]]]
-    ) -> bool:
-        """
-        Cập nhật toàn bộ pairs cho area đã tồn tại.
-        pairs: list[{start: str, end: str|None}]
-        """
-        col = get_collection(self._collection_name)
-        now = datetime.now(timezone.utc)
-        
-        result = await col.update_one(
-            {"area_name": area_name.upper()},
+        # Transform thành documents với area_name và created_at
+        docs_to_insert = [
             {
-                "$set": {
-                    "pairs": pairs,
-                    "updated_at": now,
-                }
-            },
-        )
-        logger.info(
-            f"Updated area {area_name}: matched={result.matched_count}, modified={result.modified_count}"
-        )
-        return result.modified_count > 0
+                "start": p["start"],
+                "end": p.get("end"),
+                "area_name": area_name.upper(),
+                "created_at": now,
+            }
+            for p in pairs
+        ]
+
+        inserted_count = 0
+        duplicate_pairs = []
+
+        try:
+            result = await col.insert_many(docs_to_insert, ordered=False)
+            inserted_count = len(result.inserted_ids)
+            logger.info(f"Inserted {inserted_count} pairs into area {area_name}")
+        except BulkWriteError as e:
+            inserted_count = e.details.get("nInserted", 0)
+
+            # Lấy danh sách pairs bị duplicate (E11000)
+            for error in e.details.get("writeErrors", []):
+                if error.get("code") == 11000:  # Duplicate key error
+                    idx = error.get("index", -1)
+                    if 0 <= idx < len(docs_to_insert):
+                        dup_doc = docs_to_insert[idx]
+                        duplicate_pairs.append(
+                            {"start": dup_doc["start"], "end": dup_doc.get("end")}
+                        )
+
+            logger.warning(
+                f"BulkWrite partial success: inserted={inserted_count}, "
+                f"duplicates={len(duplicate_pairs)}"
+            )
+
+        return inserted_count, duplicate_pairs
 
     async def delete_pairs(
-        self, area_name: str, pairs_to_delete: List[Dict[str, Optional[str]]]
-    ) -> bool:
+        self, pairs_to_delete: List[Dict[str, Optional[str]]]
+    ) -> int:
         """
-        Xóa 1 hoặc nhiều pairs cụ thể trong area.
-        pairs_to_delete: list[{start: str, end: str|None}] - các pair cần xóa
+        Xóa 1 hoặc nhiều pairs cụ thể (theo start và end).
+        Trả về số lượng pairs đã xóa.
         """
         col = get_collection(self._collection_name)
-        now = datetime.now(timezone.utc)
-        
-        result = await col.update_one(
-            {"area_name": area_name.upper()},
-            {
-                "$pull": {"pairs": {"$in": pairs_to_delete}},
-                "$set": {"updated_at": now},
-            },
-        )
-        logger.info(
-            f"Deleted {len(pairs_to_delete)} pairs from area {area_name}: modified={result.modified_count}"
-        )
-        return result.modified_count > 0
 
-    async def delete_area(self, area_name: str) -> bool:
-        """Xóa toàn bộ document của 1 area."""
-        col = get_collection(self._collection_name)
-        result = await col.delete_one({"area_name": area_name.upper()})
-        logger.info(f"Deleted area {area_name}: deleted={result.deleted_count}")
-        return result.deleted_count > 0
+        # Build query $or để match từng pair
+        or_conditions = []
+        for p in pairs_to_delete:
+            condition = {"start": p["start"]}
+            if p.get("end") is not None:
+                condition["end"] = p["end"]
+            else:
+                condition["end"] = None
+            or_conditions.append(condition)
+
+        if not or_conditions:
+            return 0
+
+        result = await col.delete_many({"$or": or_conditions})
+        logger.info(f"Deleted {result.deleted_count} pairs")
+        return result.deleted_count
