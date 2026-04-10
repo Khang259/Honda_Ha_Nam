@@ -18,7 +18,7 @@ async def get_state_points() -> Dict[str, Any]:
         
         points_dict[node_id] = {
             "state": data["state"],
-            "time": data["time"].strftime("%H:%M:%S"), #changing for easy to read
+            "time": data["time"],
             "flag": data["flag"],
         }
 

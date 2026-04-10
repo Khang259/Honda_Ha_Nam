@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from config import (
-    VALIDATE_PAIRS,
     ICS_URL,
     ENABLE_SNAPSHOTS,
     SNAPSHOT_DIR,
@@ -17,13 +16,14 @@ from config import (
     MODEL_PATH,
 )
 from core.state_manager import StateManager
-from core.pair_manager import PairManager, get_validate_pairs
+from core.pair_manager import PairManager
 from core.snapshot_manager import SnapshotManager
 from core.camera_manager import CameraManager
 from core.inference_engine import InferenceEngine
-
+import config as _ai_config
 import api.state as api_state
 from api.services.camera_config_service import NodeIdConfigService
+from api.services.validate_pairs_service import ValidatePairsService
 
 
 @dataclass
@@ -54,12 +54,11 @@ class RuntimeService:
         cameras = await NodeIdConfigService().refresh(area)
 
         # Keep config.CAMERAS in sync for scripts/tests that read the global list.
-        import config as _ai_config
-
         _ai_config.CAMERAS = list(cameras)
 
-        state_manager = StateManager(VALIDATE_PAIRS)
-        validate_pairs = get_validate_pairs(VALIDATE_PAIRS)
+        # Load validate pairs from MongoDB
+        validate_pairs = await ValidatePairsService().get_validate_pairs(area)
+        state_manager = StateManager(validate_pairs)
 
         snapshot_manager = None
         if ENABLE_SNAPSHOTS:

@@ -56,6 +56,7 @@ class MongoPairClient:
                 "end": p.get("end"),
                 "area_name": area_name.upper(),
                 "created_at": now,
+                "updated_at": now,
             }
             for p in pairs
         ]
@@ -86,6 +87,59 @@ class MongoPairClient:
             )
 
         return inserted_count, duplicate_pairs
+
+    def _pair_filter(self, p: Dict[str, Optional[str]]) -> Dict[str, Any]:
+        """Filter Mongo cho 1 pair (start, end) — end None được lưu rõ ràng."""
+        cond: Dict[str, Any] = {"start": p["start"]}
+        if p.get("end") is not None:
+            cond["end"] = p["end"]
+        else:
+            cond["end"] = None
+        return cond
+
+    async def update_pairs(
+        self, updates: List[Dict[str, Any]]
+    ) -> Tuple[int, List[Dict[str, Optional[str]]]]:
+        """
+        Cập nhật 1 hoặc nhiều pairs theo `match`, optional new_start/new_end/area_name.
+        Luôn set `updated_at`. Nếu document thiếu `created_at` thì set lúc update.
+        Trả về (số bản ghi modified, danh sách match không tìm thấy).
+        """
+        col = get_collection(self._collection_name)
+        now = datetime.now(timezone.utc)
+        modified_total = 0
+        not_found: List[Dict[str, Optional[str]]] = []
+
+        for item in updates:
+            match = item.get("match") or {}
+            filt = self._pair_filter(match)
+
+            doc = await col.find_one(filt)
+            if not doc:
+                not_found.append(
+                    {"start": match.get("start", ""), "end": match.get("end")}
+                )
+                continue
+
+            set_doc: Dict[str, Any] = {"updated_at": now}
+            if doc.get("created_at") is None:
+                set_doc["created_at"] = now
+
+            if item.get("new_start") is not None:
+                set_doc["start"] = item["new_start"]
+            if "new_end" in item:
+                # Cho phép set end thành None rõ ràng
+                set_doc["end"] = item["new_end"]
+            if item.get("area_name") is not None:
+                set_doc["area_name"] = str(item["area_name"]).upper()
+
+            result = await col.update_one(filt, {"$set": set_doc})
+            modified_total += result.modified_count
+
+        logger.info(
+            f"update_pairs: modified={modified_total}, not_found={len(not_found)}"
+        )
+        return modified_total, not_found
 
     async def delete_pairs(
         self, pairs_to_delete: List[Dict[str, Optional[str]]]

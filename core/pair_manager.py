@@ -262,8 +262,3 @@ class PairManager:
             except Exception as e:
                 logger.error(f"Error in pair processing loop: {e}", exc_info=True)
                 time.sleep(1)
-
-# Helper function để backward compatibility
-def get_validate_pairs(config_validate_pairs):
-    """Convert config to set of tuples."""
-    return set(config_validate_pairs)

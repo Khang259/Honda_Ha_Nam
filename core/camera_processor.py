@@ -40,6 +40,10 @@ class CameraProcessor(threading.Thread):
         self.api_client = api_client  # API client cho worker mode
         self.running = True
         self.window_name = f"Camera {rtsp.split('/')[-1]}"
+        
+        # Cache detections for streaming API
+        self.latest_detections = None
+        self._detections_lock = threading.Lock()
 
     def _is_enabled(self):
         if self.camera_index < len(self.enabled_ref):
@@ -96,6 +100,10 @@ class CameraProcessor(threading.Thread):
                 logger.warning(f"Inference timeout for {self.cam_id}, skipping frame")
                 time.sleep(0.01)
                 continue
+
+            # Cache detections for streaming API
+            with self._detections_lock:
+                self.latest_detections = detections
 
             for roi_dict in self.rois:
                 node_id = roi_dict["node_id"]

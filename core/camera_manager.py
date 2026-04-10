@@ -76,9 +76,9 @@ class CameraManager:
 
     def _build_node_id_to_cam(self):
         for i, cam in enumerate(self.cameras_config):
-            cam_url = self._get_cam_url(cam)
-            suffix = cam_url.split(".")[-2] if cam_url else str(i)
-            cam_id = f"cam_{i}_{suffix}"
+            # Use cameraId from MongoDB if available, fallback to index
+            camera_id = cam.get("cameraId", i)
+            cam_id = f"cam_{i}_{camera_id}"
             for roi_dict in self._get_internal_rois(cam):
                 node_id = roi_dict.get("node_id")
                 if node_id and node_id not in self._node_id_to_cam:
@@ -87,8 +87,9 @@ class CameraManager:
     def start(self):
         for i, cam in enumerate(self.cameras_config):
             cam_url = self._get_cam_url(cam)
-            suffix = cam_url.split(".")[-2] if cam_url else str(i)
-            cam_id = f"cam_{i}_{suffix}"
+            # Use cameraId from MongoDB if available, fallback to index
+            camera_id = cam.get("cameraId", i)
+            cam_id = f"cam_{i}_{camera_id}"
 
             result_queue = queue.Queue(maxsize=10)
             self.inference_engine.register_camera(cam_id, result_queue)
@@ -162,3 +163,46 @@ class CameraManager:
             "alive": sum(1 for t in self.threads if t.is_alive()),
             "enabled": enabled_count,
         }
+    
+    def get_camera_detections(self, cam_id: str):
+        """
+        Lấy latest detections cho camera.
+        
+        Args:
+            cam_id: ID của camera (format: cam_0_101)
+        
+        Returns:
+            torch.Tensor hoặc None - shape (N, 6) [x1, y1, x2, y2, conf, class]
+        """
+        for thread in self.threads:
+            if hasattr(thread, 'cam_id') and thread.cam_id == cam_id:
+                if hasattr(thread, '_detections_lock'):
+                    with thread._detections_lock:
+                        return thread.latest_detections
+        return None
+    
+    def get_camera_rois(self, cam_id: str):
+        """
+        Lấy ROIs config cho camera từ internal threads.
+        NOTE: Đây là ROIs từ config lúc khởi tạo, không phải từ MongoDB.
+        
+        Args:
+            cam_id: ID của camera (format: cam_0_101)
+        
+        Returns:
+            list[dict] - [{"node_id": str, "roi": [x, y, w, h]}, ...]
+        """
+        for thread in self.threads:
+            if hasattr(thread, 'cam_id') and thread.cam_id == cam_id:
+                if hasattr(thread, 'rois'):
+                    return thread.rois
+        return []
+    
+    def get_all_camera_ids(self):
+        """
+        Lấy tất cả cam_ids đang active.
+        
+        Returns:
+            list[str] - list of cam_ids
+        """
+        return list(self.latest_frames.keys())

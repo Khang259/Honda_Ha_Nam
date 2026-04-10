@@ -3,7 +3,11 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, HTTPException
 
 from api.clients.mongo_pair_client import MongoPairClient
-from api.schemas.pair import AddPairsPayload, DeletePairsPayload
+from api.schemas.pair import (
+    AddPairsPayload,
+    DeletePairsPayload,
+    UpdatePairsPayload,
+)
 
 router = APIRouter()
 pair_client = MongoPairClient()
@@ -27,7 +31,7 @@ async def get_pairs_by_area(area_name: str):
 async def add_pairs(payload: AddPairsPayload) -> Dict[str, Any]:
     """
     Thêm 1 hoặc nhiều pairs vào hệ thống.
-    Nếu có duplicate (trùng start-end), sẽ skip và trả về danh sách duplicates.
+    Mỗi document có created_at và updated_at (cùng thời điểm khi tạo).
     """
     pairs_dict = [p.model_dump() for p in payload.pairs]
     inserted_count, duplicate_pairs = await pair_client.add_pairs(
@@ -46,6 +50,30 @@ async def add_pairs(payload: AddPairsPayload) -> Dict[str, Any]:
         "code": 1000,
         "message": f"Inserted {inserted_count} pair(s) successfully",
         "count": inserted_count,
+    }
+
+
+@router.put("/update")
+async def update_pairs(payload: UpdatePairsPayload) -> Dict[str, Any]:
+    """
+    Cập nhật 1 hoặc nhiều pairs: tìm theo `match`, gán new_start/new_end/area_name nếu có.
+    Luôn cập nhật `updated_at`. Nếu bản ghi thiếu `created_at` thì gán lúc cập nhật.
+    """
+    items = [u.model_dump(exclude_unset=True) for u in payload.updates]
+    modified_count, not_found = await pair_client.update_pairs(items)
+
+    if not_found:
+        return {
+            "code": 1002,
+            "message": f"Updated {modified_count} pair(s); {len(not_found)} match(es) not found",
+            "count": modified_count,
+            "not_found": not_found,
+        }
+
+    return {
+        "code": 1000,
+        "message": f"Updated {modified_count} pair(s) successfully",
+        "count": modified_count,
     }
 
 

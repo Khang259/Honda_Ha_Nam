@@ -15,9 +15,6 @@ logger = setup_logger("engine_control_routes", "logs/engine_control_routes/log")
 
 router = APIRouter()
 
-
-# ============ Camera Control ============
-
 @router.post("/start-all")
 async def start_all_cameras() -> Dict[str, Any]:
     """Enable all cameras and resume inference."""
@@ -83,19 +80,17 @@ async def toggle_node_flag(node_id: str) -> Dict[str, Any]:
 @router.get("/{zone}")
 async def get_zone(zone: str) -> Dict[str, Any]:
     """Trả về snapshot state + flags của các node_id trong zone."""
-    from config import VALIDATE_PAIRS_BY_ZONE
-    
     if not api_state.state_manager:
         return {"error": "State manager not initialized", "success": False}
     
-    zone_pairs = VALIDATE_PAIRS_BY_ZONE.get(zone.upper(), [])
+    # Lấy tất cả node_ids từ validate_pairs của StateManager
     zone_node_ids = set()
-    for pair in zone_pairs:
+    for pair in api_state.state_manager.validate_pairs:
         for node_id in pair:
             zone_node_ids.add(node_id)
     
     if not zone_node_ids:
-        return {"error": "Zone not found", "success": False}
+        return {"error": "No pairs loaded in state manager", "success": False}
     
     nodes = {}
     flags = {}

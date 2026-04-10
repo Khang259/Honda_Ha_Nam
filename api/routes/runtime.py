@@ -6,7 +6,7 @@ from api.settings import settings
 from api.services.runtime_service import runtime_service
 
 
-router = APIRouter(prefix="/runtime", tags=["runtime"])
+router = APIRouter()
 
 
 @router.get("/status")

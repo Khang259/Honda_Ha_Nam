@@ -73,7 +73,7 @@ class StateManager:
             if not data["state"]:
                 if not data["flag"]:
                     existed_time = current_time - data["time"]
-                    if existed_time > 60:
+                    if existed_time > 30:
                         if node_id not in self.ready_end_list:
                             self.ready_end_list.add(node_id)
                             #logger.debug(f"{node_id} added to ready_end_list")
