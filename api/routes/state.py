@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, List
 
 from fastapi import APIRouter
 
@@ -8,18 +8,17 @@ router = APIRouter()
 
 
 @router.get("/state/points")
-async def get_state_points() -> Dict[str, Any]:
+async def get_state_points() -> List[str, Any]:
     """Get all node points state."""
     if not api_state.state_manager:
         return {"error": "State manager not initialized", "success": False}
 
-    points_dict: Dict[str, Any] = {}
+    points_dict: List[str, Any] = {}
     for node_id, data in api_state.state_manager.points.items():
-        
-        points_dict[node_id] = {
+        points_dict.append({
+            "node_id": node_id,
             "state": data["state"],
-            "time": data["time"],
-            "flag": data["flag"],
-        }
+            "enabled": data["flag"]
+        })
 
-    return {"code": 1000, "message": "Success", "points": points_dict}
+    return {"code": 1000, "message": "Success", "data": points_dict}

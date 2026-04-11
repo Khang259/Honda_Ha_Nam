@@ -14,7 +14,7 @@ class MongoNodeIdClient:
     
     def __init__(self, collection_name: str = "node_id"):
         self._collection_name = collection_name
-    
+    #TODO: kiểm tra 2 hàm get_by_area và get_all có cần thiết không?
     async def get_by_area(self, area_name: str) -> List[Dict[str, Any]]:
         """
         Lấy tất cả camera trong area từ Mongo.

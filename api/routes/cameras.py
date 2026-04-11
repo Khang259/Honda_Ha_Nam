@@ -1,14 +1,16 @@
 # File: api/routes/cameras.py
 """
 Camera control routes.
-
-In mode "API+Worker merged", commands are executed in-process by calling
 `CameraManager` and controlling `InferenceEngine` pause/resume.
 """
 from typing import Dict, Any
 from fastapi import APIRouter
 
+from api.schemas.node_flag import NodeFlagRequest
+
 import api.state as api_state
+from api.services.camera_health_service import CameraHealthService
+from api.services.camera_control_service import camera_control_service
 from utils.setup_log import setup_logger
 
 logger = setup_logger("engine_control_routes", "logs/engine_control_routes/log")
@@ -22,7 +24,7 @@ async def start_all_cameras() -> Dict[str, Any]:
         return {"error": "camera_manager/inference_engine not initialized", "success": False}
     api_state.camera_manager.start_all_cameras()
     api_state.inference_engine.resume()
-    return {"success": True, "message": "All cameras enabled"}
+    return {"code": 1000, "message": "Success enable"}
 
 
 @router.post("/stop-all")
@@ -32,7 +34,7 @@ async def stop_all_cameras() -> Dict[str, Any]:
         return {"error": "camera_manager/inference_engine not initialized", "success": False}
     api_state.camera_manager.stop_all_cameras()
     api_state.inference_engine.pause()
-    return {"success": True, "message": "All cameras disabled"}
+    return {"code": 1000, "message": "Success disable"}
 
 
 @router.post("/{zone}/start-all")
@@ -45,7 +47,7 @@ async def start_zone_cameras(zone: str) -> Dict[str, Any]:
     enabled_count = api_state.camera_manager.get_status().get("enabled", 0)
     if enabled_count > 0:
         api_state.inference_engine.resume()
-    return {"success": True, "message": f"Zone {z} enabled", "enabled": enabled_count}
+    return {"code": 1000, "message": f"Zone {z} enabled", "enabled": enabled_count}
 
 
 @router.post("/{zone}/stop-all")
@@ -58,23 +60,40 @@ async def stop_zone_cameras(zone: str) -> Dict[str, Any]:
     enabled_count = api_state.camera_manager.get_status().get("enabled", 0)
     if enabled_count == 0:
         api_state.inference_engine.pause()
-    return {"success": True, "message": f"Zone {z} disabled", "enabled": enabled_count}
+    return {"code": 1000, "message": f"Zone {z} disabled", "enabled": enabled_count}
 
-#This route to reset flag manual delete the current flag and order_id from array
-@router.post("/flag/{node_id}")
-async def toggle_node_flag(node_id: str) -> Dict[str, Any]:
-    """Toggle flag của node_id trong StateManager."""
+# Gán flag theo body { "id", "enable" }; flag trong StateManager = enable
+@router.post("/flag")
+async def set_node_flag(payload: NodeFlagRequest) -> Dict[str, Any]:
+    """Đặt flag của node_id (payload.id) trong StateManager bằng payload.enable."""
     if not api_state.state_manager:
         return {"error": "State manager not initialized", "success": False}
-    
+
+    node_id = payload.id
     if node_id in api_state.state_manager.points:
-        current = api_state.state_manager.points[node_id]["flag"]
-        api_state.state_manager.points[node_id]["flag"] = not current
-        logger.info(f"Toggled flag for {node_id}: {current} -> {not current}")
-        return {"success": True, "node_id": node_id, "flag": not current}
-    
+        api_state.state_manager.points[node_id]["flag"] = payload.enable
+        logger.info(f"Set flag for {node_id}: flag={payload.enable}")
+        return {
+            "success": True,
+            "id": node_id,
+            "enable": payload.enable,
+        }
+
     logger.warning(f"Node {node_id} not found in state manager")
     return {"error": "Node not found", "success": False}
+
+
+@router.post("/camera/{camera_id}/toggle")
+async def toggle_camera_by_id(camera_id: int) -> Dict[str, Any]:
+    """Toggle bật/tắt một camera theo cameraId từ MongoDB."""
+    if not api_state.camera_manager or not api_state.inference_engine:
+        return {"code": 1001, "message": "camera_manager/inference_engine not initialized"}
+    
+    return camera_control_service.toggle_camera(
+        api_state.camera_manager,
+        api_state.inference_engine,
+        camera_id
+    )
 
 
 @router.get("/{zone}")
@@ -103,4 +122,5 @@ async def get_zone(zone: str) -> Dict[str, Any]:
             }
             flags[node_id] = data["flag"]
     
-    return {"success": True, "zone": zone.upper(), "nodes": nodes, "flags": flags}
+    return {"success": True, "zone": zone.upper(), "nodes": nodes, "flags": flags} 
+
