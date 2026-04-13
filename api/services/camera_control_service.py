@@ -65,7 +65,7 @@ class CameraControlService:
                 return {"code": 1003, "message": "Invalid camera index"}
             
             new_value = not camera_manager.enabled[index]
-            camera_manager.set_camera_enabled(index, new_value)
+            camera_manager.enabled[index] = new_value
         
         # Đồng bộ inference engine
         enabled_count = sum(1 for e in camera_manager.enabled if e)

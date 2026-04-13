@@ -23,6 +23,14 @@ class NodeIdConfigService:
         node_ids = await self._client.get_by_area(area.upper())
         logger.info(f"Loaded {len(node_ids)} node_ids for area {area}")
         return node_ids
+
+    async def get_all(self) -> List[Dict[str, Any]]:
+        """
+        Lấy tất cả node_id config từ Mongo.
+        """
+        node_ids = await self._client.get_all()
+        logger.info(f"Loaded {len(node_ids)} node_ids")
+        return node_ids
     
     async def refresh(self, area: str) -> List[Dict[str, Any]]:
         """Alias cho get() để backward-compatible với runtime_service."""

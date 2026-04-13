@@ -48,8 +48,8 @@ def _tcp_probe(host: str, port: int, timeout_s: float) -> Tuple[bool, str]:
 
 
 class CameraHealthService:
-    async def check_area(self, area: str, timeout_s: float = DEFAULT_CONNECT_TIMEOUT_S) -> Dict[str, Any]:
-        cameras = await node_id_config_service.get(area.upper())
+    async def check_area_all(self, timeout_s: float = DEFAULT_CONNECT_TIMEOUT_S) -> Dict[str, Any]:
+        cameras = await node_id_config_service.get_all()
         message: List[Dict[str, Any]] = []
 
         for doc in cameras:

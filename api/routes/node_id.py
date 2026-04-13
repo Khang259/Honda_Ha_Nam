@@ -15,13 +15,13 @@ _client = MongoNodeIdClient(collection_name="node_id")
 async def get_node_id_all() -> Dict[str, Any]:
     """Get all camera configs (alias of GET /node-id without area)."""
     items = await _client.get_all()
-    return {"success": True, "items": items}
+    return {"code": 1000, "message": "Success", "data": items}
 
 @router.get("/area/{area}")
 async def get_node_id_by_area(area: str) -> Dict[str, Any]:
     """Get all camera configs by area."""
     items = await _client.get_by_area(area)
-    return {"success": True, "area": area.upper(), "items": items}
+    return {"code": 1000, "message": "Success", "data": items}
 
 @router.post("/create-node-id")
 async def create_node_id(payload: List[NodeIdCreate] = Body(...)) -> Dict[str, Any]:

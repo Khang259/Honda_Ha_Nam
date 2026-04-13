@@ -7,9 +7,9 @@ from typing import Dict, Any
 from fastapi import APIRouter
 
 from api.schemas.node_flag import NodeFlagRequest
-
+from api.schemas.camera_flag import CameraFlagRequest
 import api.state as api_state
-from api.services.camera_health_service import CameraHealthService
+from api.services.camera_health_service import camera_health_service
 from api.services.camera_control_service import camera_control_service
 from utils.setup_log import setup_logger
 
@@ -63,7 +63,7 @@ async def stop_zone_cameras(zone: str) -> Dict[str, Any]:
     return {"code": 1000, "message": f"Zone {z} disabled", "enabled": enabled_count}
 
 # Gán flag theo body { "id", "enable" }; flag trong StateManager = enable
-@router.post("/flag")
+@router.post("/flag-node-id")
 async def set_node_flag(payload: NodeFlagRequest) -> Dict[str, Any]:
     """Đặt flag của node_id (payload.id) trong StateManager bằng payload.enable."""
     if not api_state.state_manager:
@@ -83,8 +83,8 @@ async def set_node_flag(payload: NodeFlagRequest) -> Dict[str, Any]:
     return {"error": "Node not found", "success": False}
 
 
-@router.post("/camera/{camera_id}/toggle")
-async def toggle_camera_by_id(camera_id: int) -> Dict[str, Any]:
+@router.post("/flag-camera-id")
+async def set_camera_flag(payload: CameraFlagRequest) -> Dict[str, Any]:
     """Toggle bật/tắt một camera theo cameraId từ MongoDB."""
     if not api_state.camera_manager or not api_state.inference_engine:
         return {"code": 1001, "message": "camera_manager/inference_engine not initialized"}
@@ -92,9 +92,22 @@ async def toggle_camera_by_id(camera_id: int) -> Dict[str, Any]:
     return camera_control_service.toggle_camera(
         api_state.camera_manager,
         api_state.inference_engine,
-        camera_id
+        payload.id
     )
 
+@router.get("/health-check-cameras")
+async def health_check_cameras() -> Dict[str, Any]:
+    if not api_state.camera_manager:
+        return {"code": 1001, "message": "camera_manager not initialized", "data": []}
+    data = await camera_health_service.check_area_all()
+    return {"code": 1000, "message": "Success", "data": data}
+
+@router.get("/cameras-enable-state")
+async def get_cameras_enable_state() -> Dict[str, Any]:
+    if not api_state.camera_manager:
+        return {"code": 1001, "message": "camera_manager not initialized", "data": []}
+    data = api_state.camera_manager.get_cameras_enable_snapshot()
+    return {"code": 1000, "message": "Success", "data": data}
 
 @router.get("/{zone}")
 async def get_zone(zone: str) -> Dict[str, Any]:
@@ -122,5 +135,4 @@ async def get_zone(zone: str) -> Dict[str, Any]:
             }
             flags[node_id] = data["flag"]
     
-    return {"success": True, "zone": zone.upper(), "nodes": nodes, "flags": flags} 
-
+    return {"success": True, "zone": zone.upper(), "nodes": nodes, "flags": flags}

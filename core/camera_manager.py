@@ -206,3 +206,21 @@ class CameraManager:
             list[str] - list of cam_ids
         """
         return list(self.latest_frames.keys())
+
+    def get_cameras_enable_snapshot(self) -> list[dict]:
+        """Snapshot bật/tắt từng camera (index + cameraId + zone)."""
+        with self._enabled_lock:
+            items: list[dict] = []
+            for i, cam in enumerate(self.cameras_config or []):
+                camera_id = cam.get("cameraId", i)
+                zone = self.camera_zones[i] if i < len(self.camera_zones) else None
+                enabled = bool(self.enabled[i]) if i < len(self.enabled) else False
+                items.append(
+                    {
+                        "index": i,
+                        "cameraId": camera_id,
+                        "enabled": enabled,
+                        "zone": zone,
+                    }
+                )
+            return items
