@@ -24,12 +24,13 @@ import config as _ai_config
 import api.state as api_state
 from api.services.camera_config_service import NodeIdConfigService
 from api.services.validate_pairs_service import ValidatePairsService
+from api.clients.mongo_node_id_client import MongoNodeIdClient
 
 
 @dataclass
+#TODO: check this still available?
 class RuntimeStatus:
     running: bool
-    area: Optional[str]
     config_source: Optional[str]
     config_fetched_at: Optional[float]
     cameras_total: int
@@ -44,20 +45,19 @@ class RuntimeService:
         self._components: Dict[str, Any] = {}
         self._running: bool = False
         self._started_at: Optional[float] = None
-        self._area: Optional[str] = None
         self._config_meta: Dict[str, Any] = {}
 
-    async def start(self, area: str) -> RuntimeStatus:
+    async def start(self) -> RuntimeStatus:
         if self._running:
-            return self.status()
+            return None #self.status()
 
-        cameras = await NodeIdConfigService().refresh(area)
+        cameras = await MongoNodeIdClient().get_all() #Remind: tạm thời thay thế NodeIdConfigService().refresh(area)
 
         # Keep config.CAMERAS in sync for scripts/tests that read the global list.
         _ai_config.CAMERAS = list(cameras)
 
         # Load validate pairs from MongoDB
-        validate_pairs = await ValidatePairsService().get_validate_pairs(area)
+        validate_pairs = await ValidatePairsService().get_validate_pairs_all()
         state_manager = StateManager(validate_pairs)
 
         snapshot_manager = None
@@ -108,7 +108,6 @@ class RuntimeService:
         }
         self._running = True
         self._started_at = time.time()
-        self._area = area.upper()
         self._config_meta = {
             "cameras_count": len(cameras),
         }
@@ -179,7 +178,6 @@ class RuntimeService:
 
         status = RuntimeStatus(
             running=self._running,
-            area=self._area,
             config_source="mongo",
             config_fetched_at=None,
             cameras_total=cameras_total,
@@ -190,7 +188,6 @@ class RuntimeService:
         )
         return {
             "running": status.running,
-            "area": status.area,
             "config": {
                 "source": status.config_source,
                 "cameras_count": self._config_meta.get("cameras_count", 0),

@@ -20,7 +20,6 @@ class CameraManager:
             self.camera_zones = ["AE5"] * len(cameras_config)
 
         self.threads = []
-        # Khởi tạo tất cả camera ở trạng thái tắt; GUI/Start All sẽ bật khi cần.
         self.enabled = [False] * len(cameras_config)
         self._enabled_lock = threading.Lock()
         self.latest_frames = {}
@@ -28,8 +27,7 @@ class CameraManager:
         self._build_node_id_to_cam()
 
     def _get_cam_url(self, cam: dict) -> str:
-        """Get RTSP/url from camera config (support both old/new schemas)."""
-        return cam.get("url") or cam.get("rtsp")
+        return cam.get("url")
 
     def _get_internal_rois(self, cam: dict):
         """

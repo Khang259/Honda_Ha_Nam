@@ -28,6 +28,33 @@ class GPUVideoDecoder:
         
         self._start_decode()
 
+    
+    def _decode_loop(self):
+        """Vòng lặp đọc stdout FFmpeg theo frame_size, chuyển raw -> numpy BGR, bỏ frame cũ nếu queue đầy rồi put vào queue; set _ready khi có frame đầu."""
+        first_frame = True
+        while self.running:
+            try:
+                raw = self.process.stdout.read(self.frame_size)
+                if len(raw) != self.frame_size:
+                    continue
+
+                frame = np.frombuffer(raw, np.uint8).reshape((self.height, self.width, 3))
+
+                if first_frame: 
+                    self._ready.set() #Kích hoạt event threading for what?
+                    first_frame = False
+
+                if self.queue.full(): #Nếu đầy thì sử dụng get_nowait() để xóa frame cũ
+                    try:
+                        self.queue.get_nowait()
+                    except queue.Empty: #Nếu queue rỗng thì pass
+                        pass
+
+                self.queue.put(frame) #và put frame mới
+            except Exception as e:
+                logger.error(f"Decode error: {e}")
+                break
+
     def _start_decode(self):
         """Chạy FFmpeg với hwaccel cuda (NVDEC), pipe stdout raw BGR; khởi động thread _decode_loop."""
         if self.running:
@@ -65,34 +92,6 @@ class GPUVideoDecoder:
             logger.error(f"Failed to start FFmpeg: {e}")
             self._opened = False
 
-    def _decode_loop(self):
-        """Vòng lặp đọc stdout FFmpeg theo frame_size, chuyển raw -> numpy BGR, bỏ frame cũ nếu queue đầy rồi put vào queue; set _ready khi có frame đầu."""
-        first_frame = True
-        while self.running:
-            try:
-                raw = self.process.stdout.read(self.frame_size)
-                if len(raw) != self.frame_size:
-                    #logger.warning(f"Incomplete frame from {self.rtsp_url}")
-                    continue
-
-                frame = np.frombuffer(raw, np.uint8).reshape((self.height, self.width, 3))
-
-                if first_frame:
-                    self._ready.set()
-                    first_frame = False
-                    #logger.info(f"First frame decoded from {self.rtsp_url}")
-
-                if self.queue.full():
-                    try:
-                        self.queue.get_nowait()
-                    except queue.Empty:
-                        pass
-
-                self.queue.put(frame)
-            except Exception as e:
-                logger.error(f"Decode error: {e}")
-                break
-
     def isOpened(self):
         """Trả về True nếu decoder đã mở và process FFmpeg vẫn đang chạy (poll() is None)."""
         return self._opened and self.process is not None and self.process.poll() is None
@@ -106,25 +105,6 @@ class GPUVideoDecoder:
             frame = self.queue.get()
             return True, frame
         return False, None
-
-    def release(self):
-        """Dừng decode loop, kill process FFmpeg, chờ tối đa 2s; giải phóng tài nguyên."""
-        self.running = False
-        self._opened = False
-        
-        if self.process:
-            try:
-                self.process.kill()
-                self.process.wait(timeout=2)
-            except:
-                pass
-            self.process = None
-        
-        #logger.info(f"Released decoder for {self.rtsp_url}")
-
-    def get_width_height(self):
-        """Trả về (width, height) của frame đầu ra."""
-        return self.width, self.height
     
     def wait_ready(self, timeout=10.0):
         """
@@ -140,3 +120,16 @@ class GPUVideoDecoder:
         else:
             logger.warning(f"Decoder timeout waiting for first frame from {self.rtsp_url}")
         return is_ready
+
+    def release(self):
+        """Dừng decode loop, kill process FFmpeg, chờ tối đa 2s; giải phóng tài nguyên."""
+        self.running = False
+        self._opened = False
+        
+        if self.process:
+            try:
+                self.process.kill()
+                self.process.wait(timeout=2)
+            except:
+                pass
+            self.process = None

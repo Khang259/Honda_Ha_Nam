@@ -47,7 +47,7 @@ class InferenceEngine(threading.Thread):
         self.num_streams = num_streams
         self.shared_queue = queue.Queue(maxsize=max_queue_size)
         self.result_queues = {}
-        self.streams = [] 
+        self.streams = []
         self.pending_batches = deque(maxlen=num_streams * 2)
         self.running = False
         self.model = None
@@ -68,7 +68,7 @@ class InferenceEngine(threading.Thread):
     
     def register_camera(self, cam_id, result_queue):
         """
-        Đăng ký result queue cho camera.
+        Đăng ký result queue cho camera trong camera_manager.py
         
         Args:
             cam_id: ID của camera
@@ -81,7 +81,7 @@ class InferenceEngine(threading.Thread):
         Put frame vào shared queue, drop oldest nếu queue full.
         
         Args:
-            frame: numpy array (H, W, 3)
+            frame: numpy array (H, W, 3) #kiểm tra phần frame náy sử dụng numpy thì đang sử dụng tài nguyên của CPU hay GPU?
             cam_id: ID của camera
         """
         try:
@@ -89,8 +89,8 @@ class InferenceEngine(threading.Thread):
         except queue.Full:
             # Drop oldest frame
             try:
+                #TODO: Kiểm tra get_nowait có thực hiện put_nowait() không?
                 dropped_frame, dropped_cam_id = self.shared_queue.get_nowait()
-                #logger.warning(f"Queue full, dropped frame from {dropped_cam_id}")
             except queue.Empty:
                 pass
     
@@ -100,13 +100,15 @@ class InferenceEngine(threading.Thread):
         
         Returns:
             tuple: (batch_frames, cam_ids) - list of frames và corresponding cam_ids
+            self.batch_timeout: thời gian chờ tối đa để collect batch (seconds) = 1s trong config.py
+            self.max_batch_size: số lượng frames tối đa trong 1 batch = 32frames trong config.py
         """
         batch = []
         cam_ids = []
         start_time = time.time()
         
         while len(batch) < self.max_batch_size:
-            timeout = self.batch_timeout - (time.time() - start_time)
+            timeout = self.batch_timeout - (time.time() - start_time) 
             if timeout <= 0:
                 break
             
@@ -141,13 +143,13 @@ class InferenceEngine(threading.Thread):
         """
         with torch.cuda.stream(stream):
             results = self.model(frames_batch, 
-                               conf=0.3, 
-                               max_det=15,
+                               conf=0.3, #Phát hiện object với confidence score >= 0.3
+                               max_det=15, #Số lượng detections tối đa trong 1 batch
                                device='cuda',
                                verbose=False,
-                               stream=True)
+                               stream=True) #Chạy inference theo cơ chế async
             
-            output = []
+            output = [] #Lưu kết quả detections
             for result in results:
                 detections = result.boxes.data #TODO: check this code is applicable for GPU inference in batch processing
                 output.append(detections)
@@ -196,13 +198,13 @@ class InferenceEngine(threading.Thread):
 
                 batch_frames, cam_ids = self._collect_batch()
                 """
-                Nếu số lượng batch có frames > 0 thì 
+                Nếu số lượng frames trong batch > 0 thì 
                 gán batch_frames vào resultm stream vào event để chạy async_inference 
                 """
                 if len(batch_frames) > 0: 
                     stream = self.streams[stream_idx]
-                    
-                    results, event = self._async_inference(batch_frames, stream) # Gán event vào stream thông qua hàm _async_inference
+                    # Gán event vào stream thông qua hàm _async_inference
+                    results, event = self._async_inference(batch_frames, stream) #output = results, event = event 
                     #Thêm kết quả vào list(pending_batches)
                     self.pending_batches.append({
                         'results': results,
@@ -215,6 +217,7 @@ class InferenceEngine(threading.Thread):
                 
                 completed_indices = []
                 for i, batch_info in enumerate(self.pending_batches):
+                    #After inference distribute the result to each camera thread by [event] tag
                     if batch_info['event'].query(): #check if event of the object `batch_info['event']` is ready
                         self._distribute_results(batch_info['results'], batch_info['cam_ids'])
                         completed_indices.append(i)
@@ -223,7 +226,7 @@ class InferenceEngine(threading.Thread):
                     del self.pending_batches[i]
                 
                 if len(batch_frames) == 0 and len(self.pending_batches) == 0:
-                    time.sleep(0.1) #Wait for frames to be collected
+                    time.sleep(0.5) #Wait for frames to be collected this value depend on many things just to make sure that inference engine waitting to do inference
                 
             except Exception as e:
                 logger.error(f"Error in inference loop: {e}", exc_info=True)

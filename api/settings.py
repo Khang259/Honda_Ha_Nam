@@ -9,7 +9,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
-    AREA_NAME: str = Field(default="AE5")
+    # AREA_NAME: str = Field(default="AE5")
     
     # MongoDB
     MongoDB_URL: str = Field(default="mongodb://localhost:27017/")

@@ -45,6 +45,7 @@ class CameraProcessor(threading.Thread):
         self.latest_detections = None
         self._detections_lock = threading.Lock()
 
+    #Hàm kiểm tra trạng thái camera(threading) đã được bật hay chưa?
     def _is_enabled(self):
         if self.camera_index < len(self.enabled_ref):
             return self.enabled_ref[self.camera_index]
@@ -71,6 +72,7 @@ class CameraProcessor(threading.Thread):
                     time.sleep(2)
                     continue
                 logger.info(f"Waiting for first frame from {self.rtsp}...")
+                #Hết timeout kill process FFmpeg và giải phóng tài nguyên
                 if not cap.wait_ready(timeout=10.0):
                     logger.error(f"Timeout waiting for first frame from {self.rtsp}")
                     cap.release()
@@ -78,10 +80,10 @@ class CameraProcessor(threading.Thread):
                     time.sleep(2)
                     continue
 
-            ret, frame = cap.read()
-            if not ret:
+            ret, frame = cap.read() #ret: bool, frame: numpy array(ảnh BGR)
+            if not ret: #Nếu cap đánh đấu không đọc được qua cờ `ret`
                 logger.warning(f"Lost frame from {self.rtsp} - try reconnect...")
-                cap.release()
+                cap.release() #Kill process FFmpeg và giải phóng tài nguyên
                 cap = None
                 time.sleep(1)
                 continue
