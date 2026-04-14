@@ -113,6 +113,7 @@ class CameraProcessor(threading.Thread):
                 has_obj, coverage = has_object_in_roi(detections, roi, node_id, use_gpu=True)
                 
                 # Sử dụng API client nếu có (worker mode), ngược lại dùng state_manager trực tiếp
+                #TODO: check this still available
                 if self.api_client:
                     self.api_client.post_detection(self.cam_id, node_id, has_obj, coverage)
                 elif self.state_manager:

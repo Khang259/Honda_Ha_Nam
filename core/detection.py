@@ -46,15 +46,15 @@ def has_object_in_roi(detections, roi, node_id=None, use_gpu=True):
                 has_object = True
                 coverage_value = max_coverage.item()
         else: #Fallback to CPU
-            for det in detections:
-                det_x, det_y, det_x1, det_y1, conf, cls = det
-                if cls == 0.0 and conf > threshold_detect:
-                    det_box = [det_x, det_y, det_x1, det_y1]
-                    if is_roi_covered_enough(det_box, roi_box, threshold_coverage):
-                        coverage_value = calculate_coverage(det_box, roi_box)
-                        has_object = True
-                        break
-        
+            # for det in detections:
+            #     det_x, det_y, det_x1, det_y1, conf, cls = det
+            #     if cls == 0.0 and conf > threshold_detect:
+            #         det_box = [det_x, det_y, det_x1, det_y1]
+            #         if is_roi_covered_enough(det_box, roi_box, threshold_coverage):
+            #             coverage_value = calculate_coverage(det_box, roi_box)
+            #             has_object = True
+            #             break
+            logger.warning("This device has no GPU, fallback to CPU")
         return has_object, coverage_value
     except Exception as e:
         logger.error(f"Error in detection: {e}")

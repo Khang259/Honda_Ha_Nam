@@ -37,4 +37,3 @@ class NodeIdConfigService:
         return await self.get(area)
 
 node_id_config_service = NodeIdConfigService()
-

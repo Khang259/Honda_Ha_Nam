@@ -100,7 +100,7 @@ class CameraManager:
                 self.inference_engine,
                 result_queue,
                 cam_id,
-                snapshot_manager=self.snapshot_manager,
+                snapshot_manager=self.snapshot_manager, #This can be deleted cause dont need to snapshot
                 enabled_ref=self.enabled,
                 camera_index=i,
                 latest_frames_ref=self.latest_frames,
