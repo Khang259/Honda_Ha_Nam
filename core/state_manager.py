@@ -28,7 +28,7 @@ class StateManager:
                     #logger.debug(f"Start timer for {node_id}")
                 else:
                     current["time"] = time.time()
-                    self.ready_start_list.discard(node_id)
+                    self.ready_start_list.discard(node_id) #Kiểm tra xem có cần loại bỏ khỏi ready_start_list không
                     #logger.debug(f"Reset timer for {node_id}")
                     
             elif node_id.startswith("end_"):
@@ -37,7 +37,7 @@ class StateManager:
                     #logger.debug(f"End timer for {node_id}")
                 else:
                     current["time"] = time.time()
-                    self.ready_end_list.discard(node_id)
+                    self.ready_end_list.discard(node_id) #Kiểm tra xem có cần loại bỏ khỏi ready_end_list không
                     #logger.debug(f"Reset timer for {node_id}")
     
     def process_starts(self):
@@ -53,17 +53,6 @@ class StateManager:
                     if existed_time > 30:
                         if node_id not in self.ready_start_list:
                             self.ready_start_list.add(node_id)
-            #This business logic is used for point with only 1 start point to reset the flag 
-            #Updated: No need this function cause the reset mechanism is depends on the signal from external server
-            # else:
-            #     for pair in self.validate_pairs:
-            #         if len(pair) == 1 and pair[0] == node_id:
-            #             if data["flag"]:
-            #                 existed_time = current_time - data["time"]
-            #                 if existed_time > 30:
-            #                     self.ready_start_list.discard(node_id)
-            #                     self.points[node_id]["flag"] = False
-            #                 break # tránh duyệt thừa
 
     def process_ends(self):
         current_time = time.time()
@@ -82,24 +71,25 @@ class StateManager:
             #This business logic is used to reset the flag for 2 points start and end
             #The reset mechanism is depends on the state of the end point
             else:
-                if data["flag"]:
-                    existed_time = current_time - data["time"]
+                return None #Không cần reset flag cho end point vì đã được reset bởi webhook
+                # if data["flag"]:
+                #     existed_time = current_time - data["time"]
                     
-                    if existed_time > 30:
-                        self.ready_end_list.discard(node_id)
-                        start_point = self.pair_mapping.get(node_id)
+                #     if existed_time > 30:
+                #         self.ready_end_list.discard(node_id)
+                #         start_point = self.pair_mapping.get(node_id)
                         
-                        if start_point:
-                            self.ready_start_list.discard(start_point)
-                            self.points[node_id]["flag"] = False
-                            self.points[start_point]["flag"] = False
-                            del self.pair_mapping[node_id]
-                        else:
-                            logger.warning(
-                                f"No start_point found in pair_mapping for {node_id}")
-                            self.points[node_id]["flag"] = False
+                #         if start_point:
+                #             self.ready_start_list.discard(start_point)
+                #             self.points[node_id]["flag"] = False
+                #             self.points[start_point]["flag"] = False
+                #             del self.pair_mapping[node_id]
+                #         else:
+                #             logger.warning(
+                #                 f"No start_point found in pair_mapping for {node_id}")
+                #             self.points[node_id]["flag"] = False
 
-    def set_pair_used(self, start_point, end_point, order_id, empty_car=False):
+    def set_pair_used(self, start_point, end_point, order_id, empty_car=False): #Empty car để check lệnh dôi
         """Move pair từ ready sang used, set flags."""
         # Set flags
         self.points[start_point]["flag"] = True

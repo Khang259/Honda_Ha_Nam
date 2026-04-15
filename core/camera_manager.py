@@ -9,13 +9,12 @@ logger = setup_logger("camera_manager", "logs/camera_manager/log")
 
 class CameraManager:
 
-    def __init__(self, cameras_config, state_manager, inference_engine, snapshot_manager=None, camera_zones=None, api_client=None):
+    def __init__(self, cameras_config, state_manager, inference_engine, snapshot_manager=None, camera_zones=None):
         self.cameras_config = cameras_config
         self.state_manager = state_manager
         self.inference_engine = inference_engine
         self.snapshot_manager = snapshot_manager
         self.camera_zones = camera_zones or []
-        self.api_client = api_client  # API client cho worker mode
         if not self.camera_zones and cameras_config:
             self.camera_zones = ["AE5"] * len(cameras_config)
 
@@ -104,7 +103,6 @@ class CameraManager:
                 enabled_ref=self.enabled,
                 camera_index=i,
                 latest_frames_ref=self.latest_frames,
-                api_client=self.api_client,
             )
             self.threads.append(thread)
             thread.start()

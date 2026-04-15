@@ -58,7 +58,6 @@ class PairManager:
                     if not any(start_empty == item[0] for item in self.pending_empty_queue):
                         deadline = now + 15  # chờ tối đa 15s
                         self.pending_empty_queue.append((start_empty, deadline))
-                # không gửi payload ngay
 
         # 2) Xử lý normal pairs (len == 2) theo thứ tự FIFO start
         used_starts = set()
@@ -137,14 +136,12 @@ class PairManager:
             name="PairManager"
         )
         self.thread.start()
-        #logger.info("PairManager thread started")
     
     def stop(self):
         """Dừng pair processing thread."""
         self.running = False
         if self.thread:
             self.thread.join(timeout=5)
-        #logger.info("PairManager thread stopped")
     
     def _run(self):
         logger.info("PairManager processing loop started")
@@ -158,8 +155,8 @@ class PairManager:
                 now = time.time()
 
                 # 1) Ghép double tasks theo FIFO empty queue
-                normal_idx = 0
-                while normal_idx < len(pairs) and self.pending_empty_queue: #Kiểm tra có normal VA empty để gửi lệnh 
+                normal_idx = 0 #Biến normal_idx để đánh dấu pair đó được đùng để gửi lệnh đơn hay đôi
+                while normal_idx < len(pairs) and self.pending_empty_queue: #Kiểm tra các pair còn lại có nhiều hơn chỉ số không và còn lệnh xe trống 
                     start_empty, deadline = self.pending_empty_queue[0]  #Unpack start_empty và deadline từ queue
 
                     # Hết hạn 15s -> gửi empty (không consume normal pair)
@@ -170,18 +167,18 @@ class PairManager:
                         order_id = payload_empty.get("orderId")
 
                         if success:
+                            #Tạo snapshot với lệnh đã gửi
                             if self.snapshot_manager is not None:
                                 self.snapshot_manager.save_pair_snapshots(
                                     start_empty, end_empty, order_id
                             )
-                            #TODO: Check the start_empty is work well with logic status == 23 or 3 just for reset flag with empty car
-                            self.state_manager.set_pair_used(start_empty, end_empty, order_id, empty_car=True) #TODO: check var empty_car still avail
+                            self.state_manager.set_pair_used(start_empty, end_empty, order_id, empty_car=False)
                         else:
                             logger.error(
                                 f"Failed to post empty pair ({start_empty}, {end_empty}) with orderId: {order_id}"
                             )
 
-                        self.pending_empty_queue.pop(0)  # Loại bỏ khỏi queue sau khi gửi lệnh để tránh trùng 
+                        self.pending_empty_queue.pop(0)  # Loại bỏ khỏi queue để tránh trùng
                         continue
 
                     # Còn hạn -> ghép với normal pair tiếp theo
@@ -201,8 +198,8 @@ class PairManager:
                             self.snapshot_manager.save_pair_snapshots(
                                 start_point, end_point, order_id
                             )
-                        self.state_manager.set_pair_used(start_point, end_point, order_id, empty_car=False)
-                        self.state_manager.set_pair_used(start_empty, end_empty, order_id, empty_car=True)
+                        self.state_manager.set_pair_used(start_point, end_point, order_id, empty_car=True)
+                        self.state_manager.set_pair_used(start_empty, end_empty, order_id, empty_car=False)
                     else:
                         logger.error(
                             f"Failed to post double pair "
@@ -211,7 +208,7 @@ class PairManager:
                         )
 
                     self.pending_empty_queue.pop(0)
-                    normal_idx += 1
+                    normal_idx += 1 # Tăng biến normal_idx để đánh dấu pair gửi đôi với với pair gửi normal
 
                 # 2) Các normal pairs còn lại -> gửi single như cũ
                 for pair, payload in zip(pairs[normal_idx:], payloads[normal_idx:]):
@@ -249,7 +246,7 @@ class PairManager:
                             self.snapshot_manager.save_pair_snapshots(
                                 start_empty, end_empty, order_id
                             )
-                        self.state_manager.set_pair_used(start_empty, end_empty, order_id, empty_car=True)
+                        self.state_manager.set_pair_used(start_empty, end_empty, order_id, empty_car=False)
                     else:
                         logger.error(
                             f"Failed to post empty pair ({start_empty}, {end_empty}) with orderId: {order_id}"

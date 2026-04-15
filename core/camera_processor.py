@@ -112,13 +112,13 @@ class CameraProcessor(threading.Thread):
                 roi = roi_dict["roi"]
                 has_obj, coverage = has_object_in_roi(detections, roi, node_id, use_gpu=True)
                 
-                # Sử dụng API client nếu có (worker mode), ngược lại dùng state_manager trực tiếp
-                #TODO: check this still available
-                if self.api_client:
-                    self.api_client.post_detection(self.cam_id, node_id, has_obj, coverage)
-                elif self.state_manager:
+                #Update state của node_id qua API
+                # if self.api_client:
+                #     self.api_client.post_detection(self.cam_id, node_id, has_obj, coverage)
+                #Update state của node_id trực tiếp
+                if self.state_manager:
                     self.state_manager.get_state_nodes(node_id, has_obj)
-                
+                #Có thể bỏ nếu không sử dụng snapshot
                 if self.snapshot_manager is not None:
                     self.snapshot_manager.update_frame(node_id, frame)
 
