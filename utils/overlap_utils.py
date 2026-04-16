@@ -21,7 +21,7 @@ def calculate_coverage_batch(detection_boxes, roi_box, device='cuda'):
     if not isinstance(detection_boxes, torch.Tensor):
         detection_boxes = torch.tensor(detection_boxes, device=device)
     else:
-        return None #This line is used to check if the detection_boxes is a tensor
+        detection_boxes = detection_boxes.to(device)
     
     if detection_boxes.shape[1] > 4: #Kiểm tra xem phần tử đầu có shape > 4 để kiểm tra có cả cls và conf
         det_boxes = detection_boxes[:, :4] #Lấy các phần tử x1, y1, x2, y2

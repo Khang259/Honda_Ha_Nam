@@ -56,7 +56,7 @@ async def add_pairs(payload: AddPairsPayload) -> Dict[str, Any]:
 @router.put("/update")
 async def update_pairs(payload: UpdatePairsPayload) -> Dict[str, Any]:
     """
-    Cập nhật 1 hoặc nhiều pairs: tìm theo `match`, gán new_start/new_end/area_name nếu có.
+    Cập nhật 1 hoặc nhiều pairs: tìm theo `pairs`, gán new_start/new_end/area_name nếu có.
     Luôn cập nhật `updated_at`. Nếu bản ghi thiếu `created_at` thì gán lúc cập nhật.
     """
     items = [u.model_dump(exclude_unset=True) for u in payload.updates]
@@ -65,7 +65,7 @@ async def update_pairs(payload: UpdatePairsPayload) -> Dict[str, Any]:
     if not_found:
         return {
             "code": 1002,
-            "message": f"Updated {modified_count} pair(s); {len(not_found)} match(es) not found",
+            "message": f"Updated {modified_count} pair(s); {len(not_found)} pairs(es) not found",
             "count": modified_count,
             "not_found": not_found,
         }

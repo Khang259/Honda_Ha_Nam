@@ -16,10 +16,10 @@ class AddPairsPayload(BaseModel):
 
 class PairUpdateItem(BaseModel):
     """
-    Cập nhật 1 pair: tìm theo `match`, gán giá trị mới nếu có.
+    Cập nhật 1 pair: tìm theo `pairs`, gán giá trị mới nếu có.
     Nếu không truyền new_start/new_end/area_name thì chỉ cập nhật timestamp (updated_at).
     """
-    match: PairItem = Field(..., description="Cặp (start, end) hiện có trong DB")
+    pairs: PairItem = Field(..., description="Cặp (start, end) hiện có trong DB")
     new_start: Optional[str] = Field(None, description="Start mới (giữ nguyên nếu bỏ qua)")
     new_end: Optional[str] = Field(None, description="End mới (giữ nguyên nếu bỏ qua)")
     area_name: Optional[str] = Field(None, description="Area mới (giữ nguyên nếu bỏ qua)")
@@ -30,7 +30,7 @@ class UpdatePairsPayload(BaseModel):
     updates: List[PairUpdateItem] = Field(
         ...,
         min_length=1,
-        description="Danh sách cập nhật (match + field mới tùy chọn)",
+        description="Danh sách cập nhật (pairs + field mới tùy chọn)",
     )
 
 

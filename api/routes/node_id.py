@@ -10,6 +10,7 @@ from api.clients.mongo_node_id_client import MongoNodeIdClient
 router = APIRouter()
 
 _client = MongoNodeIdClient(collection_name="node_id")
+_end_points_client = MongoNodeIdClient(collection_name="end_points")
 
 @router.get("/all")
 async def get_node_id_all() -> Dict[str, Any]:
@@ -63,3 +64,13 @@ async def delete_node_id_by_camera_id(camera_id: int = Path(..., description="ca
     ok = await _client.delete_by_camera_id(camera_id)
     return {"success": ok, "cameraId": camera_id}
 
+
+#TODO: check this function
+@router.post("/update-empty-car-points")
+async def update_empty_car_points():
+    end_points = await _end_points_client.get_empty_car_points()
+    ok = await _end_points_client.update_empty_car_points(end_points)
+    return {
+        "code": 1000,
+        "message": "Success"
+        }

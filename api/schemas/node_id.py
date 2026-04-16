@@ -1,4 +1,4 @@
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Tuple
 from pydantic import BaseModel, Field
 
 class NodeIdCreate(BaseModel):
@@ -8,9 +8,11 @@ class NodeIdCreate(BaseModel):
     type_model: Optional[str] = Field(None, description="Type model of the models")
     node_id: Optional[str] = Field(None, description="Task path where put the camera")
     area_name: Optional[str] = Field(None, description="Area name")
-    rois: Optional[Dict[str, List[float]]] = Field(
+    rois: Optional[Dict[str, Tuple[float, float, float, float]]] = Field(
         default_factory=dict,
-        description="ROIs of the camera with format [x,y,w,h]"
+        description="ROIs of the camera with format [x,y,w,h]",
+        max_length = 4,
+        min_length = 4
     )
 
 class NodeIdUpdate(BaseModel):
@@ -20,4 +22,4 @@ class NodeIdUpdate(BaseModel):
     type_model: Optional[int] = Field(None, description="Type model of the models")
     node_id: Optional[str] = Field(None, description="Task path where put the camera")
     area_name: Optional[str] = Field(None, description="Area name")
-    rois: Optional[Dict[str, List[float]]] = Field(None, description="ROIs of the camera with format [x,y,w,h]")
+    rois: Optional[Dict[str, Tuple[float, float, float, float]]] = Field(None, description="ROIs of the camera with format [x,y,w,h]")

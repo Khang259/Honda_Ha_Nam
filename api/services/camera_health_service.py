@@ -7,7 +7,7 @@ import socket
 from typing import Any, Dict, List, Tuple
 from urllib.parse import urlparse
 
-from api.services.camera_config_service import node_id_config_service
+from api.clients.mongo_node_id_client import MongoNodeIdClient
 from utils.setup_log import setup_logger
 
 logger = setup_logger("camera_health_service", "logs/camera_health_service/log")
@@ -49,7 +49,7 @@ def _tcp_probe(host: str, port: int, timeout_s: float) -> Tuple[bool, str]:
 
 class CameraHealthService:
     async def check_area_all(self, timeout_s: float = DEFAULT_CONNECT_TIMEOUT_S) -> Dict[str, Any]:
-        cameras = await node_id_config_service.get_all()
+        cameras = await MongoNodeIdClient().get_all()
         message: List[Dict[str, Any]] = []
 
         for doc in cameras:

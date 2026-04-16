@@ -111,7 +111,7 @@ class MongoPairClient:
         not_found: List[Dict[str, Optional[str]]] = []
 
         for item in updates:
-            match = item.get("match") or {}
+            match = item.get("pairs") or {}
             filt = self._pair_filter(match)
 
             doc = await col.find_one(filt)

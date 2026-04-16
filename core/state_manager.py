@@ -53,6 +53,7 @@ class StateManager:
                     if existed_time > 30:
                         if node_id not in self.ready_start_list:
                             self.ready_start_list.add(node_id)
+                            #logger.debug(f"{node_id} added to ready_start_list")
 
     def process_ends(self):
         current_time = time.time()
@@ -70,8 +71,7 @@ class StateManager:
             
             #This business logic is used to reset the flag for 2 points start and end
             #The reset mechanism is depends on the state of the end point
-            else:
-                return None #Không cần reset flag cho end point vì đã được reset bởi webhook
+            #else: #Không cần reset flag cho end point vì đã được reset bởi webhook
                 # if data["flag"]:
                 #     existed_time = current_time - data["time"]
                     

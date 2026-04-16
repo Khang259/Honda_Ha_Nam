@@ -2,13 +2,11 @@ import time
 import threading
 from collections import deque
 import requests
-from config import END_POINT_EMPTY
 from utils.setup_log import setup_logger
 from utils.data import payload_sent_ICS, payload_sent_ICS_empty, payload_sent_ICS_double
-
+import api.state as api_state
 
 logger = setup_logger("pair_manager", "logs/pair_manager/log")
-
 
 class PairManager:
 
@@ -161,7 +159,7 @@ class PairManager:
 
                     # Hết hạn 15s -> gửi empty (không consume normal pair)
                     if now > deadline:
-                        end_empty = END_POINT_EMPTY #End point của empty car
+                        end_empty = api_state.get_end_point_empty() #End point của empty car
                         payload_empty = payload_sent_ICS_empty(start_empty, end_empty)
                         success = self.post_to_ics(payload_empty)
                         order_id = payload_empty.get("orderId")
@@ -183,7 +181,7 @@ class PairManager:
 
                     # Còn hạn -> ghép với normal pair tiếp theo
                     start_point, end_point = pairs[normal_idx]
-                    end_empty = END_POINT_EMPTY
+                    end_empty = api_state.get_end_point_empty()
                     payload_double = payload_sent_ICS_double(
                         start_point, end_point,
                         start_empty, end_empty
@@ -235,7 +233,7 @@ class PairManager:
                     if now <= deadline:
                         break
 
-                    end_empty = END_POINT_EMPTY
+                    end_empty = api_state.get_end_point_empty()
                     payload_empty = payload_sent_ICS_empty(start_empty, end_empty)
                     success = self.post_to_ics(payload_empty)
                     order_id = payload_empty.get("orderId")

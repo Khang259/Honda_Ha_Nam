@@ -8,6 +8,7 @@ logger = setup_logger("api_state", "logs/api_state/log")
 state_manager: Optional[Any] = None
 camera_manager: Optional[Any] = None
 inference_engine: Optional[Any] = None
+end_point_empty: Optional[str] = None
 
 
 def set_state_manager(manager: Any) -> None:
@@ -30,3 +31,9 @@ def set_inference_engine(engine: Any) -> None:
     inference_engine = engine
     logger.info("Inference engine attached to API routes")
 
+def set_end_point_empty(value: Optional[str]) -> None:
+    global end_point_empty
+    end_point_empty = value
+
+def get_end_point_empty() -> Optional[str]:
+    return end_point_empty

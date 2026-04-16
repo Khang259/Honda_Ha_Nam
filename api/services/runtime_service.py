@@ -22,7 +22,6 @@ from core.camera_manager import CameraManager
 from core.inference_engine import InferenceEngine
 import config as _ai_config
 import api.state as api_state
-from api.services.camera_config_service import NodeIdConfigService
 from api.services.validate_pairs_service import ValidatePairsService
 from api.clients.mongo_node_id_client import MongoNodeIdClient
 
@@ -51,7 +50,11 @@ class RuntimeService:
         if self._running:
             return None #self.status()
 
-        cameras = await MongoNodeIdClient().get_all() #Remind: tạm thời thay thế NodeIdConfigService().refresh(area)
+        docs = await MongoNodeIdClient().get_empty_car_points()
+        end_point_empty = docs[0].get("end_points")
+        api_state.set_end_point_empty(end_point_empty)
+
+        cameras = await MongoNodeIdClient().get_all()
 
         # Keep config.CAMERAS in sync for scripts/tests that read the global list.
         _ai_config.CAMERAS = list(cameras)

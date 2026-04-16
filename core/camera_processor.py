@@ -39,8 +39,6 @@ class CameraProcessor(threading.Thread):
         self.latest_frames_ref = latest_frames_ref if latest_frames_ref is not None else {}
         self.api_client = api_client  # API client cho worker mode
         self.running = True
-        self.window_name = f"Camera {rtsp.split('/')[-1]}"
-        
         # Cache detections for streaming API
         self.latest_detections = None
         self._detections_lock = threading.Lock()

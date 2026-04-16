@@ -14,6 +14,13 @@ class MongoNodeIdClient:
     
     def __init__(self, collection_name: str = "node_id"):
         self._collection_name = collection_name
+
+    async def check_exist(self, camera_id: int) -> bool:
+        """Check if cameraId exists in MongoDB."""
+        col = get_collection(self._collection_name)
+        result = await col.find_one({"cameraId": camera_id})
+        return result is not None
+
     #TODO: kiểm tra 2 hàm get_by_area và get_all có cần thiết không?
     async def get_by_area(self, area_name: str) -> List[Dict[str, Any]]:
         """
@@ -51,7 +58,7 @@ class MongoNodeIdClient:
             
             # Lấy danh sách cameraId bị duplicate (E11000)
             for error in e.details.get('writeErrors', []):
-                if error.get('code') == 11000:  # Duplicate key error
+                if error.get('code') == 1002:  # Duplicate key error
                     # Extract cameraId từ error message hoặc từ document gốc
                     idx = error.get('index', -1)
                     if 0 <= idx < len(camera_docs):
@@ -81,3 +88,18 @@ class MongoNodeIdClient:
         result = await col.delete_many({"cameraId": camera_id})
         logger.info(f"Deleted node_id cameraId={camera_id}, deleted={result.deleted_count}")
         return result.deleted_count > 0
+
+    async def get_empty_car_points(self) -> List[Dict[str, Any]]:
+        """Lấy tất cả điểm trống từ Mongo."""
+        col = get_collection("end_points")
+        cursor = col.find({}, {"_id": 0})
+        docs = await cursor.to_list(length=None)
+        return [doc for doc in docs if isinstance(doc, dict)]
+
+    async def update_empty_car_points(self, end_points: str):
+        col = get_collection("end_points")
+        result = await col.update_one(
+            {"end_points": end_points},
+            {"$set": {"empty_car": True}}
+        )
+        return result.modified_count > 0
