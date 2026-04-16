@@ -67,10 +67,10 @@ async def delete_node_id_by_camera_id(camera_id: int = Path(..., description="ca
 
 #TODO: check this function
 @router.post("/update-empty-car-points")
-async def update_empty_car_points():
-    end_points = await _end_points_client.get_empty_car_points()
-    ok = await _end_points_client.update_empty_car_points(end_points)
+async def update_empty_car_points(end_points: str) -> Dict[str, Any]:
+    data = await _end_points_client.update_empty_car_points(end_points)
     return {
         "code": 1000,
-        "message": "Success"
-        }
+        "message": "Success",
+        "data": data
+    }

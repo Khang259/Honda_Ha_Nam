@@ -14,6 +14,7 @@ class MongoNodeIdClient:
     
     def __init__(self, collection_name: str = "node_id"):
         self._collection_name = collection_name
+        self._end_points_collection_name = "end_points"
 
     async def check_exist(self, camera_id: int) -> bool:
         """Check if cameraId exists in MongoDB."""
@@ -96,10 +97,13 @@ class MongoNodeIdClient:
         docs = await cursor.to_list(length=None)
         return [doc for doc in docs if isinstance(doc, dict)]
 
-    async def update_empty_car_points(self, end_points: str):
-        col = get_collection("end_points")
+    async def update_empty_car_points(self, end_points: str) -> Dict[str, Any]:
+        col = get_collection(self._end_points_collection_name)
         result = await col.update_one(
             {"end_points": end_points},
             {"$set": {"empty_car": True}}
         )
-        return result.modified_count > 0
+        return {
+            "code": 1000,
+            "message": "Success"
+        }
