@@ -32,6 +32,7 @@ def load_cameras_from_mongodb(
     mongodb_url: str,
     db_name: str,
     collection_name: str = "node_id",
+    worker_id: Optional[str] = None,
     connect_timeout_ms: int = 2000,
     server_selection_timeout_ms: int = 2000,
 ) -> List[Dict[str, Any]]:
@@ -44,7 +45,9 @@ def load_cameras_from_mongodb(
     )
     try:
         col = client[db_name][collection_name]
-        docs = list(col.find({}).sort("cameraId", 1))
+        # Filter by worker_id if provided
+        query = {"current_worker": worker_id} if worker_id else {}
+        docs = list(col.find(query).sort("cameraId", 1))
     finally:
         try:
             client.close()

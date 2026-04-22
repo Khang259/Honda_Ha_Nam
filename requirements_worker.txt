@@ -1,6 +1,0 @@
-ultralytics
-numpy
-opencv-python
-Pillow
-httpx
-pymongo

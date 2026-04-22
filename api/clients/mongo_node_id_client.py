@@ -2,7 +2,8 @@
 MongoDB client for camera config CRUD operations.
 """
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
+from datetime import datetime
 from pymongo.errors import BulkWriteError
 from api.core.database import get_collection
 from utils.setup_log import setup_logger
@@ -107,3 +108,90 @@ class MongoNodeIdClient:
             "code": 1000,
             "message": "Success"
         }
+    
+    async def get_by_worker(self, worker_id: str) -> List[Dict[str, Any]]:
+        """
+        Lấy tất cả cameras được assign cho một worker.
+        
+        Args:
+            worker_id: ID của worker
+            
+        Returns:
+            List[Dict]: Danh sách camera configs
+        """
+        col = get_collection(self._collection_name)
+        cursor = col.find(
+            {"current_worker": worker_id},
+            {"_id": 0}
+        ).sort("cameraId", 1)
+        docs = await cursor.to_list(length=None)
+        logger.debug(f"Found {len(docs)} cameras for worker {worker_id}")
+        return [doc for doc in docs if isinstance(doc, dict)]
+    
+    async def claim_camera_atomic(
+        self, 
+        camera_id: int, 
+        worker_id: str
+    ) -> Tuple[bool, int]:
+        """
+        Claim một camera với atomic fencing token increment.
+        
+        Args:
+            camera_id: ID của camera
+            worker_id: ID của worker
+            
+        Returns:
+            Tuple[bool, int]: (success, new_fencing_token)
+        """
+        try:
+            col = get_collection(self._collection_name)
+            now = datetime.utcnow()
+            
+            result = await col.find_one_and_update(
+                {"cameraId": camera_id},
+                {
+                    "$inc": {"fencing_token": 1},
+                    "$set": {
+                        "current_worker": worker_id,
+                        "last_assigned": now
+                    }
+                },
+                return_document=True
+            )
+            
+            if result:
+                new_token = result.get("fencing_token", 0)
+                logger.debug(
+                    f"Camera {camera_id} claimed by {worker_id}, token={new_token}"
+                )
+                return True, new_token
+            else:
+                logger.warning(f"Camera {camera_id} not found for claim")
+                return False, 0
+                
+        except Exception as e:
+            logger.error(f"Failed to claim camera {camera_id}: {e}")
+            return False, 0
+    
+    async def release_by_worker(self, worker_id: str) -> int:
+        """
+        Release tất cả cameras của một worker.
+        
+        Args:
+            worker_id: ID của worker
+            
+        Returns:
+            int: Số lượng cameras đã release
+        """
+        try:
+            col = get_collection(self._collection_name)
+            result = await col.update_many(
+                {"current_worker": worker_id},
+                {"$set": {"current_worker": None}}
+            )
+            count = result.modified_count
+            logger.info(f"Released {count} cameras from worker {worker_id}")
+            return count
+        except Exception as e:
+            logger.error(f"Failed to release cameras for {worker_id}: {e}")
+            return 0

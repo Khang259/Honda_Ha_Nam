@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
@@ -20,10 +21,12 @@ from core.pair_manager import PairManager
 from core.snapshot_manager import SnapshotManager
 from core.camera_manager import CameraManager
 from core.inference_engine import InferenceEngine
+from core.worker_manager import WorkerManager
 import config as _ai_config
 import api.state as api_state
 from api.services.validate_pairs_service import ValidatePairsService
 from api.clients.mongo_node_id_client import MongoNodeIdClient
+from api.settings import settings
 
 
 @dataclass
@@ -45,16 +48,33 @@ class RuntimeService:
         self._running: bool = False
         self._started_at: Optional[float] = None
         self._config_meta: Dict[str, Any] = {}
+        self._worker_manager: Optional[WorkerManager] = None
+        self._heartbeat_task: Optional[asyncio.Task] = None
 
     async def start(self) -> RuntimeStatus:
         if self._running:
             return None #self.status()
 
+        # Initialize WorkerManager
+        self._worker_manager = WorkerManager(
+            worker_id=settings.WORKER_ID,
+            worker_ip=settings.WORKER_IP,
+            heartbeat_interval=settings.HEARTBEAT_INTERVAL,
+            heartbeat_timeout=settings.HEARTBEAT_TIMEOUT
+        )
+        await self._worker_manager.initialize()
+        
+        # Start heartbeat loop in background
+        self._heartbeat_task = asyncio.create_task(
+            self._worker_manager.start_heartbeat_loop()
+        )
+        
+        # Get assigned cameras for this worker
+        cameras = await self._worker_manager.get_assigned_camera_configs()
+
         docs = await MongoNodeIdClient().get_empty_car_points()
         end_point_empty = docs[0].get("end_points")
         api_state.set_end_point_empty(end_point_empty)
-
-        cameras = await MongoNodeIdClient().get_all()
 
         # Keep config.CAMERAS in sync for scripts/tests that read the global list.
         _ai_config.CAMERAS = list(cameras)
@@ -108,11 +128,13 @@ class RuntimeService:
             "snapshot_manager": snapshot_manager,
             "inference_engine": inference_engine,
             "camera_manager": camera_manager,
+            "worker_manager": self._worker_manager,
         }
         self._running = True
         self._started_at = time.time()
         self._config_meta = {
             "cameras_count": len(cameras),
+            "worker_id": settings.WORKER_ID,
         }
         return self.status()
 
@@ -121,6 +143,22 @@ class RuntimeService:
             return self.status()
 
         self._running = False
+        
+        # Stop heartbeat task
+        if self._heartbeat_task and not self._heartbeat_task.done():
+            self._heartbeat_task.cancel()
+        
+        # Shutdown worker manager
+        if self._worker_manager:
+            try:
+                # Create event loop if needed for async shutdown
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(self._worker_manager.shutdown())
+                else:
+                    loop.run_until_complete(self._worker_manager.shutdown())
+            except Exception as e:
+                print(f"Error shutting down worker manager: {e}")
 
         pair_manager = self._components.get("pair_manager")
         if pair_manager:
@@ -144,6 +182,8 @@ class RuntimeService:
                 pass
 
         self._components = {}
+        self._worker_manager = None
+        self._heartbeat_task = None
         api_state.set_state_manager(None)
         api_state.set_camera_manager(None)
         api_state.set_inference_engine(None)
@@ -178,6 +218,13 @@ class RuntimeService:
                 inference_paused = bool(getattr(inference_engine, "_paused").is_set())
             except Exception:
                 inference_paused = None
+        
+        worker_info = {}
+        if self._worker_manager:
+            worker_info = {
+                "worker_id": self._worker_manager.worker_id,
+                "assigned_cameras": len(self._worker_manager.assigned_camera_ids),
+            }
 
         status = RuntimeStatus(
             running=self._running,
@@ -194,6 +241,7 @@ class RuntimeService:
             "config": {
                 "source": status.config_source,
                 "cameras_count": self._config_meta.get("cameras_count", 0),
+                "worker_id": self._config_meta.get("worker_id"),
             },
             "cameras": {
                 "total": status.cameras_total,
@@ -203,6 +251,7 @@ class RuntimeService:
             "inference": {
                 "paused": status.inference_paused,
             },
+            "worker": worker_info,
             "started_at": status.started_at,
         }
 
