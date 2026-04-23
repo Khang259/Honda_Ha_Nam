@@ -3,7 +3,7 @@ Camera Assignment Service - Quản lý phân bổ cameras cho workers với fenc
 """
 
 from typing import List, Dict, Tuple, Any, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from api.core.database import get_collection
 from utils.setup_log import setup_logger
 
@@ -79,7 +79,8 @@ class CameraAssignmentService:
         try:
             col = get_collection(self._collection_name)
             now = datetime.utcnow()
-            
+            # now_vietnam = now + timedelta(hours=7)
+            # formatted_time =  now_vietnam.strftime("%Y-%m-%d %H:%M:%S")
             result = await col.find_one_and_update(
                 {"cameraId": camera_id},
                 {

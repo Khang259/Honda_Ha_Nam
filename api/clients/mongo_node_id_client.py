@@ -3,7 +3,7 @@ MongoDB client for camera config CRUD operations.
 """
 
 from typing import Any, Dict, List, Tuple, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from pymongo.errors import BulkWriteError
 from api.core.database import get_collection
 from utils.setup_log import setup_logger
@@ -127,7 +127,7 @@ class MongoNodeIdClient:
         docs = await cursor.to_list(length=None)
         logger.debug(f"Found {len(docs)} cameras for worker {worker_id}")
         return [doc for doc in docs if isinstance(doc, dict)]
-    
+    #TODO: kiểm tra hàm claim_camera_atomic có cần thiết không?
     async def claim_camera_atomic(
         self, 
         camera_id: int, 
@@ -146,6 +146,8 @@ class MongoNodeIdClient:
         try:
             col = get_collection(self._collection_name)
             now = datetime.utcnow()
+            # now_vietnam = now + timedelta(hours=7)
+            # formatted_time =  now_vietnam.strftime("%Y-%m-%d %H:%M:%S")
             
             result = await col.find_one_and_update(
                 {"cameraId": camera_id},

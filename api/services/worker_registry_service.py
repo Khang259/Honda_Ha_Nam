@@ -30,6 +30,8 @@ class WorkerRegistryService:
         try:
             col = get_collection(self._collection_name)
             now = datetime.utcnow()
+            now_vietnam = now + timedelta(hours=7)
+            formatted_time =  now_vietnam.strftime("%Y-%m-%d %H:%M:%S")
             
             result = await col.update_one(
                 {"worker_id": worker_id},
@@ -37,6 +39,7 @@ class WorkerRegistryService:
                     "$set": {
                         "worker_ip": worker_ip,
                         "last_time": now,
+                        "last_time_vietnam": formatted_time,
                     },
                     "$setOnInsert": {
                         "start_time": now,
@@ -74,12 +77,15 @@ class WorkerRegistryService:
         try:
             col = get_collection(self._collection_name)
             now = datetime.utcnow()
+            now_vietnam = now + timedelta(hours=7)
+            formatted_time =  now_vietnam.strftime("%Y-%m-%d %H:%M:%S")
             
             result = await col.update_one(
                 {"worker_id": worker_id},
                 {
                     "$set": {
                         "last_time": now,
+                        "last_time_vietnam": formatted_time,
                         "capacity.current_cameras": current_cameras
                     }
                 }
