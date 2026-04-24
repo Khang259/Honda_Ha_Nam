@@ -1,9 +1,9 @@
 from typing import Any, Dict
-
 from fastapi import APIRouter
-
-import api.state as api_state
 from api.schemas.payloads import WebhookPayload
+from datetime import datetime
+import time
+import api.state as api_state
 
 router = APIRouter()
 
@@ -26,6 +26,8 @@ async def delete_flag(payload: WebhookPayload) -> Dict[str, Any]:
         for start_point, end_point, _empty_car in pairs:
             api_state.state_manager.points[start_point]["flag"] = False
             api_state.state_manager.points[end_point]["flag"] = False
+            api_state.state_manager.points[start_point]["time"] = time.time()
+            api_state.state_manager.points[end_point]["time"] = time.time()
 
             api_state.state_manager.ready_start_list.discard(start_point)
             api_state.state_manager.ready_end_list.discard(end_point)
@@ -58,7 +60,9 @@ async def delete_flag(payload: WebhookPayload) -> Dict[str, Any]:
                     if empty_car:
                         api_state.state_manager.points[start_point]["flag"] = False
                         api_state.state_manager.points[end_point]["flag"] = False
-                        
+                        api_state.state_manager.points[start_point]["time"] = time.time()
+                        api_state.state_manager.points[end_point]["time"] = time.time()
+
                         api_state.state_manager.ready_start_list.discard(start_point)
                         api_state.state_manager.ready_end_list.discard(end_point)
                         
@@ -70,6 +74,8 @@ async def delete_flag(payload: WebhookPayload) -> Dict[str, Any]:
                     # Lần 2: reset empty pair (empty_car=False)
                     api_state.state_manager.points[start_point]["flag"] = False
                     api_state.state_manager.points[end_point]["flag"] = False
+                    api_state.state_manager.points[start_point]["time"] = time.time()
+                    api_state.state_manager.points[end_point]["time"] = time.time()
                     
                     api_state.state_manager.ready_start_list.discard(start_point)
                     api_state.state_manager.ready_end_list.discard(end_point)
@@ -89,6 +95,8 @@ async def delete_flag(payload: WebhookPayload) -> Dict[str, Any]:
             for start_point, end_point, _empty_car in pairs:
                 api_state.state_manager.points[start_point]["flag"] = False
                 api_state.state_manager.points[end_point]["flag"] = False
+                api_state.state_manager.points[start_point]["time"] = time.time()
+                api_state.state_manager.points[end_point]["time"] = time.time()
                 
                 api_state.state_manager.ready_start_list.discard(start_point)
                 api_state.state_manager.ready_end_list.discard(end_point)
