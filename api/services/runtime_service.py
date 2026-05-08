@@ -17,7 +17,6 @@ from config import (
     MODEL_PATH,
 )
 from core.state_manager import StateManager
-from core.pair_manager import PairManager
 from core.snapshot_manager import SnapshotManager
 from core.camera_manager import CameraManager
 from core.inference_engine import InferenceEngine
@@ -25,6 +24,7 @@ from core.worker_manager import WorkerManager
 import config as _ai_config
 import api.state as api_state
 from api.services.validate_pairs_service import ValidatePairsService
+from api.services.start_event_pairing_service import StartEventPairingOrchestrator
 from api.clients.mongo_node_id_client import MongoNodeIdClient
 from api.settings import settings
 
@@ -50,6 +50,7 @@ class RuntimeService:
         self._config_meta: Dict[str, Any] = {}
         self._worker_manager: Optional[WorkerManager] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
+        self._pairing_orchestrator: Optional[StartEventPairingOrchestrator] = None
 
     async def start(self) -> RuntimeStatus:
         if self._running:
@@ -90,14 +91,6 @@ class RuntimeService:
                 quality=SNAPSHOT_QUALITY,
             )
 
-        pair_manager = PairManager(
-            ICS_URL,
-            state_manager,
-            validate_pairs,
-            snapshot_manager=snapshot_manager,
-        )
-        pair_manager.start()
-
         inference_engine = InferenceEngine(
             model_path=MODEL_PATH,
             max_queue_size=INFERENCE_MAX_QUEUE_SIZE,
@@ -118,13 +111,22 @@ class RuntimeService:
         )
         camera_manager.start()
 
+        self._pairing_orchestrator = StartEventPairingOrchestrator(
+            worker_id=settings.WORKER_ID,
+            state_manager=state_manager,
+            validate_pairs=validate_pairs,
+            ics_url=ICS_URL,
+            snapshot_manager=snapshot_manager,
+        )
+        await self._pairing_orchestrator.start()
+
         api_state.set_state_manager(state_manager)
         api_state.set_camera_manager(camera_manager)
         api_state.set_inference_engine(inference_engine)
 
         self._components = {
             "state_manager": state_manager,
-            "pair_manager": pair_manager,
+            "pairing_orchestrator": self._pairing_orchestrator,
             "snapshot_manager": snapshot_manager,
             "inference_engine": inference_engine,
             "camera_manager": camera_manager,
@@ -138,11 +140,18 @@ class RuntimeService:
         }
         return self.status()
 
-    def stop(self) -> RuntimeStatus:
+    async def stop(self) -> RuntimeStatus:
         if not self._running:
             return self.status()
 
         self._running = False
+
+        if self._pairing_orchestrator:
+            try:
+                await self._pairing_orchestrator.stop()
+            except Exception:
+                pass
+            self._pairing_orchestrator = None
         
         # Stop heartbeat task
         if self._heartbeat_task and not self._heartbeat_task.done():
@@ -151,21 +160,9 @@ class RuntimeService:
         # Shutdown worker manager
         if self._worker_manager:
             try:
-                # Create event loop if needed for async shutdown
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(self._worker_manager.shutdown())
-                else:
-                    loop.run_until_complete(self._worker_manager.shutdown())
+                await self._worker_manager.shutdown()
             except Exception as e:
                 print(f"Error shutting down worker manager: {e}")
-
-        pair_manager = self._components.get("pair_manager")
-        if pair_manager:
-            try:
-                pair_manager.stop()
-            except Exception:
-                pass
 
         camera_manager = self._components.get("camera_manager")
         if camera_manager:
@@ -192,8 +189,8 @@ class RuntimeService:
 
     async def reload(self, area: str) -> Dict[str, Any]:
         prev = self.status()
-        self.stop()
-        current = await self.start(area)
+        await self.stop()
+        current = await self.start()
         return {"success": True, "previous": prev, "current": current}
 
     def status(self) -> Dict[str, Any]:

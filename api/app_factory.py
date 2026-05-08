@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
     await connect_to_mongo(settings.MongoDB_URL, settings.MongoDB_DB)
     await runtime_service.start()
     yield
-    runtime_service.stop()
+    await runtime_service.stop()
     await close_mongo_connection()
 
 

@@ -48,7 +48,6 @@ class WorkerRegistryService:
                 },
                 upsert=True
             )
-            
             if result.upserted_id or result.modified_count > 0:
                 logger.info(f"Worker registered: {worker_id} @ {worker_ip}")
                 return True
@@ -130,23 +129,6 @@ class WorkerRegistryService:
             logger.error(f"Failed to get active workers: {e}")
             return []
     
-    async def get_all_workers(self) -> List[Dict[str, Any]]:
-        """
-        Lấy tất cả workers (bao gồm cả inactive).
-        
-        Returns:
-            List[Dict]: Danh sách tất cả workers
-        """
-        try:
-            col = get_collection(self._collection_name)
-            cursor = col.find({}, {"_id": 0}).sort("worker_id", 1)
-            workers = await cursor.to_list(length=None)
-            return workers
-            
-        except Exception as e:
-            logger.error(f"Failed to get all workers: {e}")
-            return []
-    
     async def remove_worker(self, worker_id: str) -> bool:
         """
         Xóa worker khỏi registry.
@@ -171,22 +153,3 @@ class WorkerRegistryService:
         except Exception as e:
             logger.error(f"Failed to remove worker {worker_id}: {e}")
             return False
-    
-    async def get_worker(self, worker_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Lấy thông tin của một worker cụ thể.
-        
-        Args:
-            worker_id: ID của worker
-            
-        Returns:
-            Optional[Dict]: Thông tin worker hoặc None nếu không tìm thấy
-        """
-        try:
-            col = get_collection(self._collection_name)
-            worker = await col.find_one({"worker_id": worker_id}, {"_id": 0})
-            return worker
-            
-        except Exception as e:
-            logger.error(f"Failed to get worker {worker_id}: {e}")
-            return None

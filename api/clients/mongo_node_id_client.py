@@ -13,7 +13,7 @@ logger = setup_logger("mongo_node_id_client", "logs/mongo_node_id_client/log")
 class MongoNodeIdClient:
     """Client đọc camera config từ MongoDB collection node_id."""
     
-    def __init__(self, collection_name: str = "node_id"):
+    def __init__(self, collection_name: str = "node_id_test"):
         self._collection_name = collection_name
         self._end_points_collection_name = "end_points"
 

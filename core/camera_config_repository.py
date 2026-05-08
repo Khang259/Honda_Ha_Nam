@@ -31,7 +31,7 @@ def load_cameras_from_mongodb(
     *,
     mongodb_url: str,
     db_name: str,
-    collection_name: str = "node_id",
+    collection_name: str = "node_id_test",
     worker_id: Optional[str] = None,
     connect_timeout_ms: int = 2000,
     server_selection_timeout_ms: int = 2000,

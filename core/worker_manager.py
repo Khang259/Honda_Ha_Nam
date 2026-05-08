@@ -1,7 +1,7 @@
 """
 Worker Manager - Quản lý worker lifecycle, heartbeat và camera rebalancing
 """
-
+#TODO: Refactor this file ensure this file has only 4 steps function
 import asyncio
 from typing import Dict, List, Set, Optional
 from datetime import datetime
@@ -25,8 +25,8 @@ class WorkerManager:
         self,
         worker_id: str,
         worker_ip: str,
-        heartbeat_interval: int = 10,
-        heartbeat_timeout: int = 30
+        heartbeat_interval: int = 10, #Thời gian định kỳ register và update heartbeat
+        heartbeat_timeout: int = 30 #Thời gian timeout để detect worker die
     ):
         self.worker_id = worker_id
         self.worker_ip = worker_ip
@@ -50,7 +50,7 @@ class WorkerManager:
     
     async def initialize(self) -> None:
         """
-        Bước 1: Worker Registration
+        Bước: Worker Registration
         Đăng ký worker vào registry và thực hiện assignment ban đầu.
         """
         logger.info(f"Initializing worker {self.worker_id}...")
@@ -101,17 +101,15 @@ class WorkerManager:
             f"rebalancing cameras..."
         )
         
-        # Get total cameras
-        total_cameras = await self.assignment_service.get_all_cameras_count()
-        
-        if total_cameras == 0:
+        camera_ids = await self.assignment_service.get_all_camera_ids()
+        if not camera_ids:
             logger.warning("No cameras found in database")
             return
         
         # Calculate assignment
-        assignment = self.assignment_service.calculate_assignment(
-            total_cameras=total_cameras,
-            active_workers=active_worker_ids
+        assignment = self.assignment_service.calculate_assignment_for_camera_ids(
+            camera_ids=camera_ids, #Danh sách camera_id từ database
+            active_workers=active_worker_ids,
         )
         
         my_camera_ids = set(assignment.get(self.worker_id, []))
@@ -199,7 +197,7 @@ class WorkerManager:
         
         while self.running:
             try:
-                # Update heartbeat
+                # Update time heartbeat
                 await self.registry_service.update_heartbeat(
                     worker_id=self.worker_id,
                     current_cameras=len(self.assigned_camera_ids)

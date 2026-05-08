@@ -43,6 +43,16 @@ class CameraProcessor(threading.Thread):
         self.latest_detections = None
         self._detections_lock = threading.Lock()
 
+    def _numeric_camera_id(self):
+        """Parse cameraId từ cam_id dạng cam_{idx}_{cameraId}."""
+        try:
+            parts = str(self.cam_id).split("_")
+            if len(parts) >= 3:
+                return int(parts[-1])
+        except (ValueError, TypeError):
+            pass
+        return None
+
     #Hàm kiểm tra trạng thái camera(threading) đã được bật hay chưa?
     def _is_enabled(self):
         if self.camera_index < len(self.enabled_ref):
@@ -115,7 +125,9 @@ class CameraProcessor(threading.Thread):
                 #     self.api_client.post_detection(self.cam_id, node_id, has_obj, coverage)
                 #Update state của node_id trực tiếp
                 if self.state_manager:
-                    self.state_manager.get_state_nodes(node_id, has_obj)
+                    self.state_manager.get_state_nodes(
+                        node_id, has_obj, camera_id=self._numeric_camera_id()
+                    )
                 #Có thể bỏ nếu không sử dụng snapshot
                 if self.snapshot_manager is not None:
                     self.snapshot_manager.update_frame(node_id, frame)

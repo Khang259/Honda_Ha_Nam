@@ -6,3 +6,6 @@ logs/
 __pycache__/
 **/__pycache__/
 snapshots/
+utils_not_used_in/
+dist/
+build/

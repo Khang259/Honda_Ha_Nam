@@ -2,10 +2,14 @@ from typing import Any, Dict
 from fastapi import APIRouter
 from api.schemas.payloads import WebhookPayload
 from datetime import datetime
+import asyncio
 import time
 import api.state as api_state
+from api.clients.mongo_start_event_client import MongoStartEventClient
+from api.settings import settings
 
 router = APIRouter()
+_start_event_client = MongoStartEventClient()
 
 #This services used to reset flag from webhook from external server
 @router.post("/delete-flag")
@@ -31,6 +35,15 @@ async def delete_flag(payload: WebhookPayload) -> Dict[str, Any]:
 
             api_state.state_manager.ready_start_list.discard(start_point)
             api_state.state_manager.ready_end_list.discard(end_point)
+
+            if str(start_point).startswith("start_"):
+                asyncio.create_task(
+                    _start_event_client.reset_to_pending_after_delay(
+                        node_id=str(start_point),
+                        worker_id=settings.WORKER_ID,
+                        delay_seconds=30,
+                    )
+                )
 
         # Clean mappings
         del api_state.state_manager.order_mapping[order_id]
@@ -67,6 +80,14 @@ async def delete_flag(payload: WebhookPayload) -> Dict[str, Any]:
                         api_state.state_manager.ready_end_list.discard(end_point)
                         
                         api_state.state_manager.pair_mapping.pop(end_point, None)
+                        if str(start_point).startswith("start_"):
+                            asyncio.create_task(
+                                _start_event_client.reset_to_pending_after_delay(
+                                    node_id=str(start_point),
+                                    worker_id=settings.WORKER_ID,
+                                    delay_seconds=30,
+                                )
+                            )
                     else:
                         # Giữ lại empty pair cho lần 2
                         remaining.append((start_point, end_point, empty_car))
@@ -81,6 +102,14 @@ async def delete_flag(payload: WebhookPayload) -> Dict[str, Any]:
                     api_state.state_manager.ready_end_list.discard(end_point)
                     
                     api_state.state_manager.pair_mapping.pop(end_point, None)
+                    if str(start_point).startswith("start_"):
+                        asyncio.create_task(
+                            _start_event_client.reset_to_pending_after_delay(
+                                node_id=str(start_point),
+                                worker_id=settings.WORKER_ID,
+                                delay_seconds=30,
+                            )
+                        )
             
             # Cập nhật order_mapping
             if remaining:
@@ -102,6 +131,14 @@ async def delete_flag(payload: WebhookPayload) -> Dict[str, Any]:
                 api_state.state_manager.ready_end_list.discard(end_point)
                 
                 api_state.state_manager.pair_mapping.pop(end_point, None)
+                if str(start_point).startswith("start_"):
+                    asyncio.create_task(
+                        _start_event_client.reset_to_pending_after_delay(
+                            node_id=str(start_point),
+                            worker_id=settings.WORKER_ID,
+                            delay_seconds=30,
+                        )
+                    )
             
             del api_state.state_manager.order_mapping[order_id]
             message = f"Flags reset for orderId {order_id}"

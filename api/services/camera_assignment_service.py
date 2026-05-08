@@ -13,8 +13,47 @@ logger = setup_logger("camera_assignment_service", "logs/camera_assignment_servi
 class CameraAssignmentService:
     """Service quản lý camera assignment với fencing token để tránh tranh chấp"""
     
-    def __init__(self, collection_name: str = "node_id"):
+    def __init__(self, collection_name: str = "node_id_test"):
         self._collection_name = collection_name
+
+    @staticmethod
+    def calculate_assignment_for_camera_ids(
+        camera_ids: List[int],
+        active_workers: List[str],
+    ) -> Dict[str, List[int]]:
+        """
+        Chia đều theo danh sách cameraId thực tế (đã sort).
+
+        - Không giả định cameraId liên tục.
+        - Nếu chia dư, workers đầu (theo sort worker_id) nhận thêm 1 camera.
+        """
+        if not active_workers:
+            logger.warning("No active workers to assign cameras")
+            return {}
+
+        camera_ids_sorted = sorted([int(x) for x in camera_ids])
+        worker_ids_sorted = sorted(active_workers)
+
+        num_workers = len(worker_ids_sorted)
+        total_cameras = len(camera_ids_sorted)
+
+        base_count = total_cameras // num_workers
+        remainder = total_cameras % num_workers
+
+        assignment: Dict[str, List[int]] = {}
+        offset = 0
+
+        for i, worker_id in enumerate(worker_ids_sorted):
+            count = base_count + (1 if i < remainder else 0)
+            assignment[worker_id] = camera_ids_sorted[offset : offset + count]
+            offset += count
+
+        logger.info(
+            f"Calculated assignment: {num_workers} workers, "
+            f"{total_cameras} cameras, distribution: {[len(v) for v in assignment.values()]}"
+        )
+
+        return assignment
     
     def calculate_assignment(
         self, 
@@ -36,30 +75,30 @@ class CameraAssignmentService:
             100 cameras, 4 workers -> mỗi worker 25 cameras
             100 cameras, 3 workers -> 34, 33, 33 cameras
         """
-        if not active_workers:
-            logger.warning("No active workers to assign cameras")
-            return {}
-        
-        num_workers = len(active_workers)
-        base_count = total_cameras // num_workers
-        remainder = total_cameras % num_workers
-        
-        assignment: Dict[str, List[int]] = {}
-        current_camera_id = 0
-        
-        for i, worker_id in enumerate(sorted(active_workers)):
-            # Workers đầu tiên nhận thêm 1 camera nếu có dư
-            count = base_count + (1 if i < remainder else 0)
-            camera_ids = list(range(current_camera_id, current_camera_id + count))
-            assignment[worker_id] = camera_ids
-            current_camera_id += count
-        
-        logger.info(
-            f"Calculated assignment: {num_workers} workers, "
-            f"{total_cameras} cameras, distribution: {[len(v) for v in assignment.values()]}"
+        # Backward-compatible: vẫn giữ hành vi cũ theo range(0..N-1)
+        # (không dùng cho production nếu cameraId không liên tục).
+        return self.calculate_assignment_for_camera_ids(
+            camera_ids=list(range(int(total_cameras))),
+            active_workers=active_workers,
         )
-        
-        return assignment
+
+    async def get_all_camera_ids(self) -> List[int]:
+        """Lấy danh sách cameraId thực tế từ collection (sorted)."""
+        try:
+            col = get_collection(self._collection_name)
+            cursor = col.find({}, {"cameraId": 1, "_id": 0}).sort("cameraId", 1)
+            docs = await cursor.to_list(length=None)
+            camera_ids: List[int] = []
+            for d in docs:
+                if isinstance(d, dict) and "cameraId" in d:
+                    try:
+                        camera_ids.append(int(d["cameraId"]))
+                    except Exception:
+                        continue
+            return camera_ids
+        except Exception as e:
+            logger.error(f"Failed to fetch camera ids: {e}")
+            return []
     
     async def claim_camera(
         self, 
@@ -79,8 +118,6 @@ class CameraAssignmentService:
         try:
             col = get_collection(self._collection_name)
             now = datetime.utcnow()
-            # now_vietnam = now + timedelta(hours=7)
-            # formatted_time =  now_vietnam.strftime("%Y-%m-%d %H:%M:%S")
             result = await col.find_one_and_update(
                 {"cameraId": camera_id},
                 {

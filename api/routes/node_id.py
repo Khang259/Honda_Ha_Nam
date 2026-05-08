@@ -9,7 +9,7 @@ from api.clients.mongo_node_id_client import MongoNodeIdClient
 
 router = APIRouter()
 
-_client = MongoNodeIdClient(collection_name="node_id")
+_client = MongoNodeIdClient(collection_name="node_id_test")
 _end_points_client = MongoNodeIdClient(collection_name="end_points")
 
 @router.get("/all")
