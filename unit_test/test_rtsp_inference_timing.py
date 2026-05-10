@@ -36,8 +36,8 @@ from config import (
     INFERENCE_NUM_STREAMS,
     MODEL_PATH,
 )
-from core.gpu_video_decoder import GPUVideoDecoder
-from core.inference_engine import InferenceEngine
+from inference_core.gpu_video_decoder import GPUVideoDecoder
+from inference_core.inference_engine import InferenceEngine
 
 
 @dataclass

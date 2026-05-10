@@ -3,7 +3,7 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from core.gpu_video_decoder import GPUVideoDecoder
+from inference_core.gpu_video_decoder import GPUVideoDecoder
 import cv2
 import time
 

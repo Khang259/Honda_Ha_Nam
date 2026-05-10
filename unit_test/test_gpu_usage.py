@@ -7,9 +7,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import time
 import torch
-from core.gpu_video_decoder import GPUVideoDecoder
-from utils.yolo_visualizer import predict_and_visualize
-from utils.overlap_utils import calculate_coverage_batch
+from inference_core.gpu_video_decoder import GPUVideoDecoder
+from legacy.yolo_visualizer import predict_and_visualize
+from shared.overlap_utils import calculate_coverage_batch
 from ultralytics import YOLO
 import logging
 

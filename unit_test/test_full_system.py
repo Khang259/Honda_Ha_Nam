@@ -5,8 +5,8 @@ Test độc lập không cần chạy main_ai.py.
 import sys
 sys.path.insert(0, 'd:/Honda/ai_project/ai')
 
-from core.state_manager import StateManager
-from core.pair_manager import PairManager
+from inference_core.state_manager import StateManager
+from legacy.pair_manager import PairManager
 from config import ICS_URL
 
 def test_state_manager():

@@ -9,3 +9,4 @@ snapshots/
 utils_not_used_in/
 dist/
 build/
+venv/

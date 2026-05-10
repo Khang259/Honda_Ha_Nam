@@ -22,7 +22,7 @@ import sys
 import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.gpu_video_decoder import GPUVideoDecoder
+from inference_core.gpu_video_decoder import GPUVideoDecoder
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("test_model")

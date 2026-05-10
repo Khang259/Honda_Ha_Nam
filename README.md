@@ -118,14 +118,15 @@ pip install -r requirements.txt
 3) Chạy service:
 
 ```bash
-python -m api.main_ai
+python main.py
 ```
+(Hoặc: `pip install -e .` rồi `python -m apps.main`. Hoặc `cd src` rồi `python -m apps.main`.)
 
 ### Frontend
 
 ## Environment Variables
 
-Các biến môi trường được load từ `.env` (xem `api/settings.py`):
+Các biến môi trường được load từ `.env` (xem `src/api_http/settings.py`):
 
 - **MongoDB_URL**: MongoDB connection string
 - **MongoDB_DB**: tên database

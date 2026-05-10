@@ -1,0 +1,36 @@
+"""Đẩy start_* ready lên Mongo start_events."""
+
+from __future__ import annotations
+
+import asyncio
+from typing import Callable
+
+from inference_core.state_manager import StateManager
+from persistence.mongo.mongo_start_event_client import MongoStartEventClient
+from shared.setup_log import setup_logger
+
+logger = setup_logger("start_event_pairing", "logs/start_event_pairing/log")
+
+
+async def run_publisher_loop(
+    state: StateManager,
+    mongo_client: MongoStartEventClient,
+    worker_id: str,
+    is_running: Callable[[], bool],
+    sleep_seconds: float = 1.0,
+) -> None:
+    while is_running():
+        try:
+            state.process_starts()
+            for node_id in state.snapshot_ready_starts():
+                if not str(node_id).startswith("start_"):
+                    continue
+                cam = state.get_camera_id_for_node(node_id)
+                await mongo_client.upsert_ready(
+                    node_id=str(node_id),
+                    camera_id=cam,
+                    assign_worker=worker_id,
+                )
+        except Exception as e:
+            logger.error("publisher loop error: %s", e, exc_info=True)
+        await asyncio.sleep(sleep_seconds)

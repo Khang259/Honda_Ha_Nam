@@ -33,7 +33,7 @@ from config import (
     INFERENCE_MAX_BATCH_SIZE,
     INFERENCE_BATCH_TIMEOUT,
 )
-from core.gpu_video_decoder import GPUVideoDecoder
+from inference_core.gpu_video_decoder import GPUVideoDecoder
 
 
 @dataclass
