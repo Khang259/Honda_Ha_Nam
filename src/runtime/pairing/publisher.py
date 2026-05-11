@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Callable
+from typing import Callable, Dict
 
 from inference_core.state_manager import StateManager
 from persistence.mongo.mongo_start_event_client import MongoStartEventClient
@@ -17,6 +17,7 @@ async def run_publisher_loop(
     mongo_client: MongoStartEventClient,
     worker_id: str,
     is_running: Callable[[], bool],
+    start_to_area: Dict[str, str],
     sleep_seconds: float = 1.0,
 ) -> None:
     while is_running():
@@ -26,10 +27,12 @@ async def run_publisher_loop(
                 if not str(node_id).startswith("start_"):
                     continue
                 cam = state.get_camera_id_for_node(node_id)
+                area_name = start_to_area.get(str(node_id))
                 await mongo_client.upsert_ready(
                     node_id=str(node_id),
                     camera_id=cam,
                     assign_worker=worker_id,
+                    area_name=area_name,
                 )
         except Exception as e:
             logger.error("publisher loop error: %s", e, exc_info=True)

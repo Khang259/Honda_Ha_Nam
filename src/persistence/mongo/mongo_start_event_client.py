@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from pymongo import ReturnDocument
 
@@ -35,6 +35,10 @@ class MongoStartEventClient:
                 [("status", 1), ("flag", 1), ("claim_until", 1)],
                 name="status_flag_claimUntil",
             )
+            await col.create_index(
+                [("order_id", 1), ("flag", 1)],
+                name="orderId_flag",
+            )
         except Exception as e:
             logger.error(f"Failed to ensure indexes: {e}")
 
@@ -56,6 +60,7 @@ class MongoStartEventClient:
         node_id: str,
         camera_id: Optional[int],
         assign_worker: str,
+        area_name: Optional[str] = None,
     ) -> bool:
         """
         Publish/refresh a ready start-event.
@@ -88,6 +93,7 @@ class MongoStartEventClient:
                     "flag": False,
                     "ready_at": now,
                     "updated_at": now,
+                    "area_name": area_name if area_name else None,
                 },
             }
             if fencing_token is not None:
@@ -146,7 +152,7 @@ class MongoStartEventClient:
             logger.error(f"Failed to claim_ready for {node_id}: {e}", exc_info=True)
             return False, None
 
-    async def mark_sent(self, *, node_id: str, worker_id: str) -> bool:
+    async def mark_sent(self, *, node_id: str, worker_id: str, order_id: str) -> bool:
         """Mark an event sent successfully (flag=true)."""
         try:
             col = get_collection(self._collection_name)
@@ -157,6 +163,7 @@ class MongoStartEventClient:
                     "$set": {
                         "flag": True,
                         "status": "sent",
+                        "order_id": order_id,
                         "sent_at": now,
                         "last_worker": worker_id,
                         "updated_at": now,
@@ -233,4 +240,18 @@ class MongoStartEventClient:
                 exc_info=True,
             )
             return False
+
+    async def get_starts_by_order_id(self, order_id: str) -> List[Dict[str, Any]]:
+        """Query all start_ nodes for a given order_id."""
+        try:
+            col = get_collection(self._collection_name)
+            cursor = col.find(
+                {"order_id": order_id},
+                {"_id": 0, "node_id": 1, "area_name": 1, "flag": 1}
+            )
+            docs = await cursor.to_list(length=None)
+            return docs
+        except Exception as e:
+            logger.error(f"Failed to get_starts_by_order_id {order_id}: {e}")
+            return []
 

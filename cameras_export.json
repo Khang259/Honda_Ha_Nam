@@ -462,5 +462,491 @@
     "current_worker": null,
     "fencing_token": 0,
     "last_assigned": null
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adb1"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.107:554/Streaming/Channels/102",
+    "cameraId": 7,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE6",
+    "rois": {
+      "start_10000037": [
+        151,
+        258,
+        58,
+        111
+      ],
+      "start_10000038": [
+        217,
+        268,
+        48,
+        113
+      ],
+      "start_10000039": [
+        276,
+        278,
+        46,
+        110
+      ],
+      "start_10000040": [
+        326,
+        282,
+        51,
+        115
+      ],
+      "start_10000041": [
+        381,
+        290,
+        56,
+        113
+      ],
+      "start_10000042": [
+        434,
+        298,
+        55,
+        108
+      ]
+    },
+    "current_worker": "w1",
+    "fencing_token": 38,
+    "last_assigned": {
+      "$date": "2026-04-24T08:22:17.956Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adb2"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.119:554/Streaming/Channels/102",
+    "cameraId": 19,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE6",
+    "rois": {
+      "end_10000266": [
+        400,
+        218,
+        91,
+        39
+      ],
+      "end_10000757": [
+        166,
+        165,
+        20,
+        79
+      ],
+      "end_10000758": [
+        235,
+        270,
+        62,
+        120
+      ]
+    },
+    "current_worker": "w1",
+    "fencing_token": 38,
+    "last_assigned": {
+      "$date": "2026-04-24T08:22:17.971Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adb3"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.120:554/Streaming/Channels/102",
+    "cameraId": 20,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE6",
+    "rois": {
+      "end_10000267": [
+        366,
+        274,
+        100,
+        86
+      ]
+    },
+    "current_worker": "w1",
+    "fencing_token": 38,
+    "last_assigned": {
+      "$date": "2026-04-24T08:22:17.972Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adb4"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.121:554/Streaming/Channels/102",
+    "cameraId": 21,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE6",
+    "rois": {
+      "end_10000276": [
+        231,
+        210,
+        90,
+        218
+      ]
+    },
+    "current_worker": "w1",
+    "fencing_token": 38,
+    "last_assigned": {
+      "$date": "2026-04-24T08:22:17.973Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adb5"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.122:554/Streaming/Channels/102",
+    "cameraId": 22,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE6",
+    "rois": {
+      "end_10000270": [
+        302,
+        113,
+        82,
+        177
+      ],
+      "end_10000268": [
+        228,
+        122,
+        65,
+        177
+      ],
+      "end_10000274": [
+        161,
+        322,
+        53,
+        88
+      ]
+    },
+    "current_worker": "w1",
+    "fencing_token": 38,
+    "last_assigned": {
+      "$date": "2026-04-24T08:22:17.974Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adb6"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.124:554/Streaming/Channels/102",
+    "cameraId": 24,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE6",
+    "rois": {
+      "end_10000280": [
+        221,
+        90,
+        106,
+        202
+      ],
+      "end_10000282": [
+        326,
+        88,
+        96,
+        205
+      ]
+    },
+    "current_worker": "w1",
+    "fencing_token": 38,
+    "last_assigned": {
+      "$date": "2026-04-24T08:22:17.977Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adb7"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.126:554/Streaming/Channels/102",
+    "cameraId": 26,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE6",
+    "rois": {
+      "end_10000290": [
+        190,
+        135,
+        94,
+        188
+      ],
+      "end_10001797": [
+        110,
+        145,
+        74,
+        172
+      ],
+      "end_10000288": [
+        289,
+        150,
+        96,
+        174
+      ],
+      "end_10000286": [
+        389,
+        226,
+        51,
+        74
+      ]
+    },
+    "current_worker": "w1",
+    "fencing_token": 38,
+    "last_assigned": {
+      "$date": "2026-04-24T08:22:17.979Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adb8"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.127:554/Streaming/Channels/102",
+    "cameraId": 27,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE6",
+    "rois": {
+      "start_10002277": [
+        223,
+        220,
+        121,
+        76
+      ]
+    },
+    "current_worker": "w1",
+    "fencing_token": 38,
+    "last_assigned": {
+      "$date": "2026-04-24T08:22:17.981Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adb9"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.171:554/Streaming/Channels/102",
+    "cameraId": 71,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE6",
+    "rois": {
+      "start_10000904": [
+        148,
+        216,
+        104,
+        95
+      ]
+    },
+    "current_worker": "w1",
+    "fencing_token": 38,
+    "last_assigned": {
+      "$date": "2026-04-24T08:22:18.038Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adba"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.141:554/Streaming/Channels/102",
+    "cameraId": 41,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE6",
+    "rois": {
+      "start_10000989": [
+        357,
+        244,
+        45,
+        97
+      ]
+    },
+    "current_worker": "w1",
+    "fencing_token": 38,
+    "last_assigned": {
+      "$date": "2026-04-24T08:22:18.000Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adbb"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.142:554/Streaming/Channels/102",
+    "cameraId": 42,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE6",
+    "rois": {
+      "start_10000992": [
+        192,
+        110,
+        34,
+        89
+      ]
+    },
+    "current_worker": "w1",
+    "fencing_token": 38,
+    "last_assigned": {
+      "$date": "2026-04-24T08:22:18.001Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adbc"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.140:554/Streaming/Channels/102",
+    "cameraId": 40,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE6",
+    "rois": {
+      "start_10000063": [
+        266,
+        213,
+        88,
+        74
+      ]
+    },
+    "current_worker": "w1",
+    "fencing_token": 38,
+    "last_assigned": {
+      "$date": "2026-04-24T08:22:17.999Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adbd"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.139:554/Streaming/Channels/102",
+    "cameraId": 39,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE6",
+    "rois": {
+      "start_10000749": [
+        467,
+        183,
+        67,
+        107
+      ],
+      "start_10000748": [
+        414,
+        187,
+        43,
+        106
+      ],
+      "start_10000747": [
+        352,
+        189,
+        60,
+        10
+      ],
+      "start_10000746": [
+        311,
+        190,
+        35,
+        104
+      ],
+      "start_10002274": [
+        247,
+        186,
+        31,
+        89
+      ],
+      "start_10002273": [
+        196,
+        195,
+        36,
+        80
+      ],
+      "start_10002272": [
+        110,
+        225,
+        71,
+        40
+      ]
+    },
+    "current_worker": "w1",
+    "fencing_token": 38,
+    "last_assigned": {
+      "$date": "2026-04-24T08:22:17.998Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adbe"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.128:554/Streaming/Channels/102",
+    "cameraId": 28,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE6",
+    "rois": {
+      "end_10001793": [
+        295,
+        124,
+        81,
+        205
+      ],
+      "end_10001796": [
+        382,
+        129,
+        76,
+        206
+      ]
+    },
+    "current_worker": "w1",
+    "fencing_token": 38,
+    "last_assigned": {
+      "$date": "2026-04-24T08:22:17.982Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adbf"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.129:554/Streaming/Channels/102",
+    "cameraId": 29,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE6",
+    "rois": {
+      "start_10002278": [
+        55,
+        207,
+        95,
+        66
+      ],
+      "start_10002276": [
+        520,
+        185,
+        91,
+        74
+      ]
+    },
+    "current_worker": "w1",
+    "fencing_token": 38,
+    "last_assigned": {
+      "$date": "2026-04-24T08:22:17.984Z"
+    }
   }
 ]

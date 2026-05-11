@@ -6,9 +6,10 @@ atomic claim + POST ICS. Empty-car / double (15s) giống PairManager.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from inference_core.state_manager import StateManager
+from persistence.mongo.mongo_pair_client import MongoPairClient
 from persistence.mongo.mongo_start_event_client import MongoStartEventClient
 from shared.setup_log import setup_logger
 
@@ -46,6 +47,8 @@ class StartEventPairingOrchestrator:
         self._ics = IcsClient(ics_url)
         self._pool = MongoStartPool(self._start_events_collection)
         self._dispatcher: Optional[PairingDispatcher] = None
+        self._start_to_area: Dict[str, str] = {}
+        self._empty_starts_by_area: Dict[str, List[str]] = {}
 
     def _is_running(self) -> bool:
         return self._running
@@ -53,20 +56,32 @@ class StartEventPairingOrchestrator:
     async def _consumer_loop(self) -> None:
         await self._pool.consumer_loop(self._is_running)
 
-    async def _publisher_loop(self) -> None:
-        await run_publisher_loop(
-            self._state,
-            self._mongo,
-            self._worker_id,
-            self._is_running,
-        )
-
     async def _dispatcher_loop(self) -> None:
         assert self._dispatcher is not None
         await self._dispatcher.run_loop()
 
     async def start(self) -> None:
         await self._mongo.ensure_indexes()
+        
+        pair_client = MongoPairClient()
+        pair_docs = await pair_client.get_all_pairs()
+        
+        self._start_to_area = {}
+        self._empty_starts_by_area = {}
+        for doc in pair_docs:
+            start = doc.get("start")
+            area = doc.get("area_name", "UNKNOWN")
+            if start:
+                self._start_to_area[start] = area
+                if doc.get("end") is None:
+                    self._empty_starts_by_area.setdefault(area, []).append(start)
+        
+        logger.info(
+            "Loaded %d pairs, %d areas with empty starts",
+            len(pair_docs),
+            len(self._empty_starts_by_area)
+        )
+        
         self._dispatcher = PairingDispatcher(
             state=self._state,
             validate_pairs=self._validate_pairs,
@@ -79,10 +94,21 @@ class StartEventPairingOrchestrator:
             worker_id=self._worker_id,
             lease_seconds=self._lease_seconds,
             is_running=self._is_running,
+            start_to_area=self._start_to_area,
+            empty_starts_by_area=self._empty_starts_by_area,
         )
         self._running = True
         self._tasks = [
-            asyncio.create_task(self._publisher_loop(), name="start_event_publisher"),
+            asyncio.create_task(
+                run_publisher_loop(
+                    self._state,
+                    self._mongo,
+                    self._worker_id,
+                    self._is_running,
+                    self._start_to_area,
+                ),
+                name="start_event_publisher"
+            ),
             asyncio.create_task(self._consumer_loop(), name="start_event_consumer"),
             asyncio.create_task(self._dispatcher_loop(), name="start_event_dispatcher"),
         ]
