@@ -1,7 +1,7 @@
 THRESHOLD_DETECT = 0.4
 THRESHOLD_COVERAGE = 0.5
 
-ICS_URL = "http://192.168.1.30:7000/ics/taskOrder/addTask"  # Replace with actual URL
+ICS_URL = "http://192.168.1.100:7000/ics/taskOrder/addTask"  # Replace with actual URL
 PROCESSING_LOOP_DELAY = 1  # seconds
 
 # Snapshot configuration

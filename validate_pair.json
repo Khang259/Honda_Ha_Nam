@@ -1,0 +1,24 @@
+[
+    {
+      "_id": {
+        "$oid": "69e9cf6a8db62e43741cc921"
+      },
+      "start": "start_10001846",
+      "end": "end_10002082",
+      "area_name": "AE6",
+      "created_at": {
+        "$date": "2026-04-23T07:51:06.921960Z"
+      }
+    },
+    {
+      "_id": {
+        "$oid": "69e9cf6a8db62e43741cc922"
+      },
+      "start": "start_10002395",
+      "end": "end_10002135",
+      "area_name": "AE6",
+      "created_at": {
+        "$date": "2026-04-23T07:51:06.921960Z"
+      }
+    }
+]
