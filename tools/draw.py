@@ -80,7 +80,7 @@ def main():
         # "rtsp://admin:Thado12@@192.168.1.173:554/Streaming/Channels/102",
         # "rtsp://admin:Thado12@@192.168.1.181:554/Streaming/Channels/102",
         # "rtsp://admin:Thado12@@192.168.1.182:554/Streaming/Channels/102",
-        "rtsp://admin:Thado12@@192.168.1.103:554/Streaming/Channels/102",
+        "rtsp://admin:Thado12@@192.168.1.146:554/Streaming/Channels/102",
         #"rtsp://127.0.0.1:8554/start"
     ]
 
