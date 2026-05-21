@@ -196,6 +196,49 @@ class MongoStartEventClient:
             logger.error(f"Failed to unlock_to_ready for {node_id}: {e}", exc_info=True)
             return False
 
+    async def reset_all_sent_to_pending(self) -> Dict[str, Any]:
+        """
+        Reset TẤT CẢ docs có flag=True và status=sent thành flag=False và status=pending.
+        
+        Returns:
+            Dict với count và thông tin reset
+        """
+        try:
+            col = get_collection(self._collection_name)
+            now = datetime.utcnow()
+            
+            result = await col.update_many(
+                {"flag": True, "status": "sent"},
+                {
+                    "$set": {
+                        "flag": False,
+                        "status": "pending",
+                        "updated_at": now,
+                        "admin_reset_at": now,
+                    },
+                    "$unset": {
+                        "claim_owner": "",
+                        "claim_until": "",
+                        "sent_at": "",
+                    },
+                },
+            )
+            
+            count = result.modified_count
+            logger.info(f"Reset {count} sent events to pending")
+            return {
+                "success": True,
+                "count": count,
+                "message": f"Reset {count} docs from sent to pending"
+            }
+        except Exception as e:
+            logger.error(f"Failed to reset_all_sent_to_pending: {e}", exc_info=True)
+            return {
+                "success": False,
+                "count": 0,
+                "error": str(e)
+            }
+
     async def reset_to_pending_after_delay(
         self,
         *,

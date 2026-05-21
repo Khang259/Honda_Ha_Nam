@@ -13,6 +13,7 @@ from api_http.routes.runtime import router as runtime_router
 from api_http.routes.node_id import router as node_id_router
 from api_http.routes.pairs import router as pairs_router
 from api_http.routes.streaming import router as streaming_router
+from api_http.routes.admin import router as admin_router
 
 from persistence.database import close_mongo_connection, connect_to_mongo
 from runtime.runtime_service import runtime_service
@@ -51,6 +52,7 @@ def create_app() -> FastAPI:
     app.include_router(node_id_router, prefix="/node-id", tags=["node-id"])
     app.include_router(pairs_router, prefix="/pairs", tags=["pairs"])
     app.include_router(streaming_router, prefix="/streaming", tags=["streaming"])
+    app.include_router(admin_router, prefix="/admin", tags=["admin"])
 
     return app
 
