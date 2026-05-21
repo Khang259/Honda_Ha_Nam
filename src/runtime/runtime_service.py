@@ -123,6 +123,7 @@ class RuntimeService:
         api_state.set_state_manager(state_manager)
         api_state.set_camera_manager(camera_manager)
         api_state.set_inference_engine(inference_engine)
+        api_state.set_pairing_orchestrator(self._pairing_orchestrator)
 
         self._components = {
             "state_manager": state_manager,

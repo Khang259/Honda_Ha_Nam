@@ -1,5 +1,3 @@
-"""Đồng bộ pool start_events từ Mongo (change stream hoặc poll)."""
-
 from __future__ import annotations
 
 import asyncio
@@ -12,6 +10,7 @@ logger = setup_logger("start_event_pairing", "logs/start_event_pairing/log")
 
 
 class MongoStartPool:
+    """Đồng bộ pool start_events từ Mongo (change stream)."""
     def __init__(self, collection_name: str) -> None:
         self._collection_name = collection_name
         self.local_start_pool: Dict[str, Dict[str, Any]] = {}

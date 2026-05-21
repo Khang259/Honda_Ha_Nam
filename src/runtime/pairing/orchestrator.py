@@ -30,7 +30,7 @@ class StartEventPairingOrchestrator:
         validate_pairs: Set[Tuple[str, ...]],
         ics_url: str,
         snapshot_manager: Optional[Any] = None,
-        lease_seconds: int = 20,
+        lease_seconds: int = 20, #Thời gian ???
     ) -> None:
         self._worker_id = worker_id
         self._state = state_manager
@@ -40,6 +40,8 @@ class StartEventPairingOrchestrator:
         self._mongo = MongoStartEventClient()
         self._end_to_starts = build_end_to_starts(validate_pairs)
         self._running = False
+        self._paused = False
+        self._disabled_nodes: Set[str] = set()
         self._tasks: List[asyncio.Task] = []
         self._pending_empty: List[Tuple[str, float]] = []
         self._start_events_collection = "start_events_test"
@@ -50,8 +52,29 @@ class StartEventPairingOrchestrator:
         self._start_to_area: Dict[str, str] = {}
         self._empty_starts_by_area: Dict[str, List[str]] = {}
 
+    def pause(self) -> None:
+        """Pause pairing (stop POST ICS)."""
+        self._paused = True
+        logger.info("PairingOrchestrator paused")
+
+    def resume(self) -> None:
+        """Resume pairing."""
+        self._paused = False
+        self._disabled_nodes.clear()
+        logger.info("PairingOrchestrator resumed")
+
+    def disable_nodes(self, node_ids: Set[str]) -> None:
+        """Disable pairing cho specific nodes (zone/camera)."""
+        self._disabled_nodes.update(node_ids)
+        logger.info(f"Disabled {len(node_ids)} nodes for pairing")
+
+    def enable_nodes(self, node_ids: Set[str]) -> None:
+        """Enable pairing cho specific nodes."""
+        self._disabled_nodes.difference_update(node_ids)
+        logger.info(f"Enabled {len(node_ids)} nodes for pairing")
+
     def _is_running(self) -> bool:
-        return self._running
+        return self._running and not self._paused
 
     async def _consumer_loop(self) -> None:
         await self._pool.consumer_loop(self._is_running)
@@ -96,6 +119,7 @@ class StartEventPairingOrchestrator:
             is_running=self._is_running,
             start_to_area=self._start_to_area,
             empty_starts_by_area=self._empty_starts_by_area,
+            get_disabled_nodes=lambda: self._disabled_nodes,
         )
         self._running = True
         self._tasks = [

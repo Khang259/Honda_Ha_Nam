@@ -35,6 +35,7 @@ class PairingDispatcher:
         is_running: Callable[[], bool],
         start_to_area: Dict[str, str],
         empty_starts_by_area: Dict[str, List[str]],
+        get_disabled_nodes: Callable[[], Set[str]],
         sleep_seconds: float = 1.0,
     ) -> None:
         self._state = state
@@ -51,6 +52,12 @@ class PairingDispatcher:
         self._sleep_seconds = sleep_seconds
         self._start_to_area = start_to_area
         self._empty_starts_by_area = empty_starts_by_area
+        self._get_disabled_nodes = get_disabled_nodes
+
+    def _should_post_pair(self, start_point: str, end_point: str) -> bool:
+        """Kiểm tra có nên POST pair này không."""
+        disabled = self._get_disabled_nodes()
+        return start_point not in disabled and end_point not in disabled
 
     async def _post_ics(self, payload: Dict[str, Any]) -> bool:
         return await asyncio.to_thread(self._ics.post, payload)
@@ -116,6 +123,11 @@ class PairingDispatcher:
                                 self._pending_empty.pop(0)
                                 continue
                         
+                        end_empty = api_state.get_end_point_empty()
+                        if not self._should_post_pair(start_empty, end_empty):
+                            self._pending_empty.pop(0)
+                            continue
+                        
                         ok, _doc = await self._mongo.claim_ready(
                             node_id=start_empty,
                             worker_id=self._worker_id,
@@ -125,7 +137,6 @@ class PairingDispatcher:
                             self._pending_empty.pop(0)
                             continue
                         
-                        end_empty = api_state.get_end_point_empty()
                         payload_empty = payload_sent_ICS_empty(start_empty, end_empty)
                         success = await self._post_ics(payload_empty)
                         order_id = payload_empty.get("orderId")
@@ -168,6 +179,9 @@ class PairingDispatcher:
                             needs_claim_normal = start_point in self._pool.local_start_pool
                         
                         if needs_claim_normal:
+                            if not self._should_post_pair(start_point, end_point):
+                                normal_idx += 1
+                                continue
                             ok_normal, _ = await self._mongo.claim_ready(
                                 node_id=start_point,
                                 worker_id=self._worker_id,
@@ -238,6 +252,19 @@ class PairingDispatcher:
                         continue
                     
                     # POST double
+                    if not self._should_post_pair(start_point, end_point) or not self._should_post_pair(start_empty, api_state.get_end_point_empty()):
+                        if ok_normal:
+                            await self._mongo.unlock_to_ready(
+                                node_id=start_point, worker_id=self._worker_id
+                            )
+                        if ok_empty:
+                            await self._mongo.unlock_to_ready(
+                                node_id=start_empty, worker_id=self._worker_id
+                            )
+                        normal_idx += 1
+                        self._pending_empty.pop(0)
+                        continue
+                    
                     end_empty = api_state.get_end_point_empty()
                     payload_double = payload_sent_ICS_double(
                         start_point, end_point, start_empty, end_empty
@@ -291,6 +318,10 @@ class PairingDispatcher:
                 for start_point, end_point in pairs[normal_idx:]:
                     if not self._is_running():
                         break
+                    
+                    # Kiểm tra pair có bị disable không
+                    if not self._should_post_pair(start_point, end_point):
+                        continue
                     
                     # Nếu start_ có trong pool, claim trước
                     needs_claim = False
@@ -359,6 +390,11 @@ class PairingDispatcher:
                             self._pending_empty.pop(0)
                             continue
                     
+                    end_empty = api_state.get_end_point_empty()
+                    if not self._should_post_pair(start_empty, end_empty):
+                        self._pending_empty.pop(0)
+                        continue
+                    
                     ok, _doc = await self._mongo.claim_ready(
                         node_id=start_empty,
                         worker_id=self._worker_id,
@@ -368,7 +404,6 @@ class PairingDispatcher:
                         self._pending_empty.pop(0)
                         continue
                     
-                    end_empty = api_state.get_end_point_empty()
                     payload_empty = payload_sent_ICS_empty(start_empty, end_empty)
                     success = await self._post_ics(payload_empty)
                     order_id = payload_empty.get("orderId")

@@ -8,6 +8,7 @@ logger = setup_logger("api_state", "logs/api_state/log")
 state_manager: Optional[Any] = None
 camera_manager: Optional[Any] = None
 inference_engine: Optional[Any] = None
+pairing_orchestrator: Optional[Any] = None
 end_point_empty: Optional[str] = None
 
 
@@ -30,6 +31,14 @@ def set_inference_engine(engine: Any) -> None:
     global inference_engine
     inference_engine = engine
     logger.info("Inference engine attached to API routes")
+
+
+def set_pairing_orchestrator(orchestrator: Any) -> None:
+    """Set the pairing orchestrator instance for camera routes."""
+    global pairing_orchestrator
+    pairing_orchestrator = orchestrator
+    logger.info("Pairing orchestrator attached to API routes")
+
 
 def set_end_point_empty(value: Optional[str]) -> None:
     global end_point_empty
