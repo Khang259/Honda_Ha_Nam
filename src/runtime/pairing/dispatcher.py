@@ -12,6 +12,7 @@ from persistence.mongo.mongo_start_event_client import MongoStartEventClient
 from shared.data import payload_sent_ICS, payload_sent_ICS_double, payload_sent_ICS_empty
 from shared.setup_log import setup_logger
 
+from runtime.pairing.distributed_dispatcher import DistributedPairingDispatcher
 from runtime.pairing.ics_client import IcsClient
 from runtime.pairing.local_pairs import enqueue_empty_pending, make_normal_pairs_local
 from runtime.pairing.mongo_pool import MongoStartPool
@@ -34,8 +35,10 @@ class PairingDispatcher:
         lease_seconds: int,
         is_running: Callable[[], bool],
         start_to_area: Dict[str, str],
+        end_to_area: Dict[str, str],
         empty_starts_by_area: Dict[str, List[str]],
         get_disabled_nodes: Callable[[], Set[str]],
+        get_disabled_areas: Callable[[], Set[str]],
         sleep_seconds: float = 1.0,
     ) -> None:
         self._state = state
@@ -51,56 +54,63 @@ class PairingDispatcher:
         self._is_running = is_running
         self._sleep_seconds = sleep_seconds
         self._start_to_area = start_to_area
+        self._end_to_area = end_to_area
         self._empty_starts_by_area = empty_starts_by_area
         self._get_disabled_nodes = get_disabled_nodes
+        self._get_disabled_areas = get_disabled_areas
+        self._distributed = DistributedPairingDispatcher(
+            state=state,
+            end_to_starts=end_to_starts,
+            pool=pool,
+            mongo_client=mongo_client,
+            snapshot_manager=snapshot_manager,
+            worker_id=worker_id,
+            lease_seconds=lease_seconds,
+            is_running=is_running,
+            start_to_area=start_to_area,
+            end_to_area=end_to_area,
+            pending_empty=pending_empty,
+            get_disabled_nodes=get_disabled_nodes,
+            get_disabled_areas=get_disabled_areas,
+            post_ics=self._post_ics,
+        )
 
     def _should_post_pair(self, start_point: str, end_point: str) -> bool:
-        """Kiểm tra có nên POST pair này không."""
-        disabled = self._get_disabled_nodes()
-        return start_point not in disabled and end_point not in disabled
+        """Kiểm tra pair có bị chặn bởi disabled_nodes hoặc disabled_areas."""
+        disabled_nodes = self._get_disabled_nodes()
+        if start_point in disabled_nodes or end_point in disabled_nodes:
+            return False
+        
+        disabled_areas = self._get_disabled_areas()
+        if not disabled_areas:
+            return True
+        
+        start_area = self._start_to_area.get(start_point)
+        end_area = self._end_to_area.get(end_point, start_area)
+        
+        if start_area in disabled_areas or end_area in disabled_areas:
+            return False
+        
+        return True
+
+    def _should_post_empty(self, start_point: str, end_point: str) -> bool:
+        """Kiểm tra empty có bị chặn. Empty chỉ check start node/area."""
+        disabled_nodes = self._get_disabled_nodes()
+        if start_point in disabled_nodes:
+            return False
+        
+        disabled_areas = self._get_disabled_areas()
+        if not disabled_areas:
+            return True
+        
+        start_area = self._start_to_area.get(start_point)
+        if start_area in disabled_areas:
+            return False
+        
+        return True
 
     async def _post_ics(self, payload: Dict[str, Any]) -> bool:
         return await asyncio.to_thread(self._ics.post, payload)
-
-    async def _dispatch_distributed_normals(self) -> None:
-        for end_point in self._state.snapshot_ready_ends():
-            candidates = self._end_to_starts.get(end_point, [])
-            async with self._pool.pool_lock:
-                pool_keys = [k for k in candidates if k in self._pool.local_start_pool]
-            for start_point in pool_keys:
-                if not self._is_running():
-                    return
-                async with self._pool.pool_lock:
-                    if start_point not in self._pool.local_start_pool:
-                        continue
-                ok, _doc = await self._mongo.claim_ready(
-                    node_id=start_point,
-                    worker_id=self._worker_id,
-                    lease_seconds=self._lease_seconds,
-                )
-                if not ok:
-                    continue
-                payload = payload_sent_ICS(start_point, end_point)
-                success = await self._post_ics(payload)
-                order_id = payload.get("orderId")
-                if success:
-                    await self._mongo.mark_sent(
-                        node_id=start_point,
-                        worker_id=self._worker_id,
-                        order_id=order_id
-                    )
-                    self._state.set_pair_used(start_point, end_point, order_id, empty_car=False)
-                    if self._snapshot_manager is not None:
-                        try:
-                            self._snapshot_manager.save_pair_snapshots(
-                                start_point, end_point, order_id
-                            )
-                        except Exception:
-                            pass
-                    async with self._pool.pool_lock:
-                        self._pool.local_start_pool.pop(start_point, None)
-                    break
-                await self._mongo.unlock_to_ready(node_id=start_point, worker_id=self._worker_id)
 
     async def run_loop(self) -> None:
         while self._is_running():
@@ -124,7 +134,7 @@ class PairingDispatcher:
                                 continue
                         
                         end_empty = api_state.get_end_point_empty()
-                        if not self._should_post_pair(start_empty, end_empty):
+                        if not self._should_post_empty(start_empty, end_empty):
                             self._pending_empty.pop(0)
                             continue
                         
@@ -253,7 +263,7 @@ class PairingDispatcher:
                     
                     # POST double
                     end_empty = api_state.get_end_point_empty()
-                    if not self._should_post_pair(start_point, end_point) or not self._should_post_pair(start_empty, end_empty):
+                    if not self._should_post_pair(start_point, end_point) or not self._should_post_empty(start_empty, end_empty):
                         if ok_normal:
                             await self._mongo.unlock_to_ready(
                                 node_id=start_point, worker_id=self._worker_id
@@ -375,63 +385,7 @@ class PairingDispatcher:
                             order_id,
                         )
 
-                await self._dispatch_distributed_normals()
-
-                # Flush remaining empty tasks
-                while self._pending_empty:
-                    now_flush = time.time()
-                    start_empty, deadline = self._pending_empty[0]
-                    if now_flush <= deadline:
-                        break
-                    
-                    # Claim start_empty
-                    async with self._pool.pool_lock:
-                        if start_empty not in self._pool.local_start_pool:
-                            self._pending_empty.pop(0)
-                            continue
-                    
-                    end_empty = api_state.get_end_point_empty()
-                    if not self._should_post_pair(start_empty, end_empty):
-                        self._pending_empty.pop(0)
-                        continue
-                    
-                    ok, _doc = await self._mongo.claim_ready(
-                        node_id=start_empty,
-                        worker_id=self._worker_id,
-                        lease_seconds=self._lease_seconds,
-                    )
-                    if not ok:
-                        self._pending_empty.pop(0)
-                        continue
-                    
-                    payload_empty = payload_sent_ICS_empty(start_empty, end_empty)
-                    success = await self._post_ics(payload_empty)
-                    order_id = payload_empty.get("orderId")
-                    
-                    if success:
-                        await self._mongo.mark_sent(
-                            node_id=start_empty,
-                            worker_id=self._worker_id,
-                            order_id=order_id
-                        )
-                        if self._snapshot_manager is not None:
-                            try:
-                                self._snapshot_manager.save_pair_snapshots(
-                                    start_empty, end_empty, order_id
-                                )
-                            except Exception:
-                                pass
-                        self._state.set_pair_used(
-                            start_empty, end_empty, order_id, empty_car=False
-                        )
-                        async with self._pool.pool_lock:
-                            self._pool.local_start_pool.pop(start_empty, None)
-                    else:
-                        await self._mongo.unlock_to_ready(
-                            node_id=start_empty, worker_id=self._worker_id
-                        )
-                    
-                    self._pending_empty.pop(0)
+                await self._distributed.dispatch_round(now)
 
             except Exception as e:
                 logger.error("dispatcher loop error: %s", e, exc_info=True)

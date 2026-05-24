@@ -244,7 +244,7 @@ class MongoStartEventClient:
         *,
         node_id: str,
         worker_id: str,
-        delay_seconds: int = 30,
+        delay_seconds: int = 5,
     ) -> bool:
         """
         Webhook-driven reset for distributed mode.

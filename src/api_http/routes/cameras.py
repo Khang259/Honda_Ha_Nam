@@ -86,10 +86,11 @@ async def start_zone_cameras(zone: str) -> Dict[str, Any]:
     
     z = zone.upper()
     
-    # Enable pairing cho nodes của zone
+    # Enable pairing cho nodes và area của zone
     zone_nodes = _get_nodes_by_zone(z)
     if api_state.pairing_orchestrator:
         api_state.pairing_orchestrator.enable_nodes(zone_nodes)
+        api_state.pairing_orchestrator.enable_areas({z})
     
     # Start camera
     api_state.camera_manager.set_zone_enabled(z, True)
@@ -102,8 +103,9 @@ async def start_zone_cameras(zone: str) -> Dict[str, Any]:
     
     return {
         "code": 1000,
-        "message": f"Zone {z} enabled (pairing resumed for {len(zone_nodes)} nodes)",
-        "enabled": enabled_count
+        "message": f"Zone {z} enabled (nodes + area unblocked)",
+        "enabled": enabled_count,
+        "enabled_area": z
     }
 
 
@@ -118,9 +120,10 @@ async def stop_zone_cameras(zone: str) -> Dict[str, Any]:
     # Tìm tất cả node_ids thuộc zone này
     zone_nodes = _get_nodes_by_zone(z)
     
-    # Disable pairing cho nodes của zone
+    # Disable pairing cho nodes và area của zone
     if api_state.pairing_orchestrator:
         api_state.pairing_orchestrator.disable_nodes(zone_nodes)
+        api_state.pairing_orchestrator.disable_areas({z})
     
     # Stop camera
     api_state.camera_manager.set_zone_enabled(z, False)
@@ -133,9 +136,10 @@ async def stop_zone_cameras(zone: str) -> Dict[str, Any]:
     
     return {
         "code": 1000,
-        "message": f"Zone {z} disabled (pairing stopped for {len(zone_nodes)} nodes)",
+        "message": f"Zone {z} disabled (nodes + area blocked)",
         "enabled": enabled_count,
-        "disabled_nodes": len(zone_nodes)
+        "disabled_nodes": len(zone_nodes),
+        "disabled_area": z
     }
 
 # Gán flag theo body { "id", "enable" }; flag trong StateManager = enable

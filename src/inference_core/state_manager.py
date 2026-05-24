@@ -122,3 +122,7 @@ class StateManager:
     def get_camera_id_for_node(self, node_id: str):
         with self._lock:
             return self.node_camera_by_node_id.get(node_id)
+
+    def is_node_flagged(self, node_id: str) -> bool:
+        with self._lock:
+            return bool(self.points[node_id]["flag"])

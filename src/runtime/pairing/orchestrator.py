@@ -42,6 +42,7 @@ class StartEventPairingOrchestrator:
         self._running = False
         self._paused = False
         self._disabled_nodes: Set[str] = set()
+        self._disabled_areas: Set[str] = set()
         self._tasks: List[asyncio.Task] = []
         self._pending_empty: List[Tuple[str, float]] = []
         self._start_events_collection = "start_events_test"
@@ -61,6 +62,7 @@ class StartEventPairingOrchestrator:
         """Resume pairing."""
         self._paused = False
         self._disabled_nodes.clear()
+        self._disabled_areas.clear()
         logger.info("PairingOrchestrator resumed")
 
     def disable_nodes(self, node_ids: Set[str]) -> None:
@@ -72,6 +74,16 @@ class StartEventPairingOrchestrator:
         """Enable pairing cho specific nodes."""
         self._disabled_nodes.difference_update(node_ids)
         logger.info(f"Enabled {len(node_ids)} nodes for pairing")
+
+    def disable_areas(self, area_names: Set[str]) -> None:
+        """Disable pairing cho specific areas."""
+        self._disabled_areas.update(area_names)
+        logger.info(f"Disabled {len(area_names)} areas for pairing")
+
+    def enable_areas(self, area_names: Set[str]) -> None:
+        """Enable pairing cho specific areas."""
+        self._disabled_areas.difference_update(area_names)
+        logger.info(f"Enabled {len(area_names)} areas for pairing")
 
     def _is_running(self) -> bool:
         return self._running and not self._paused
@@ -90,14 +102,18 @@ class StartEventPairingOrchestrator:
         pair_docs = await pair_client.get_all_pairs()
         
         self._start_to_area = {}
+        self._end_to_area = {}
         self._empty_starts_by_area = {}
         for doc in pair_docs:
             start = doc.get("start")
+            end = doc.get("end")
             area = doc.get("area_name", "UNKNOWN")
             if start:
                 self._start_to_area[start] = area
-                if doc.get("end") is None:
-                    self._empty_starts_by_area.setdefault(area, []).append(start)
+            if end:
+                self._end_to_area[end] = area
+            if start and end is None:
+                self._empty_starts_by_area.setdefault(area, []).append(start)
         
         logger.info(
             "Loaded %d pairs, %d areas with empty starts",
@@ -118,8 +134,10 @@ class StartEventPairingOrchestrator:
             lease_seconds=self._lease_seconds,
             is_running=self._is_running,
             start_to_area=self._start_to_area,
+            end_to_area=self._end_to_area,
             empty_starts_by_area=self._empty_starts_by_area,
             get_disabled_nodes=lambda: self._disabled_nodes,
+            get_disabled_areas=lambda: self._disabled_areas,
         )
         self._running = True
         self._tasks = [
