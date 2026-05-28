@@ -89,7 +89,7 @@ def main():
     # Import CAMERAS từ config_origin
     import sys
     sys.path.insert(0, '.')
-    from config_origin import CAMERAS
+    from config_origin_update import CAMERAS
     
     # Convert tất cả cameras
     mongo_cameras = []

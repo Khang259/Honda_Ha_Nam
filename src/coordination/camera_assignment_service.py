@@ -13,7 +13,7 @@ logger = setup_logger("camera_assignment_service", "logs/camera_assignment_servi
 class CameraAssignmentService:
     """Service quản lý camera assignment với fencing token để tránh tranh chấp"""
     
-    def __init__(self, collection_name: str = "node_id_test"):
+    def __init__(self, collection_name: str = "node_id"):
         self._collection_name = collection_name
 
     @staticmethod

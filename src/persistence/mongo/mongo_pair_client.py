@@ -17,7 +17,7 @@ logger = setup_logger("mongo_pair_client", "logs/mongo_pair_client/log")
 class MongoPairClient:
     """Client đọc/ghi validate pairs từ MongoDB collection validate_pairs."""
 
-    def __init__(self, collection_name: str = "validate_pairs_test"):
+    def __init__(self, collection_name: str = "validate_pairs"):
         self._collection_name = collection_name
 
     async def get_all_pairs(self) -> List[Dict[str, Any]]:

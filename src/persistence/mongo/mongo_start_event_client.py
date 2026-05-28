@@ -22,7 +22,7 @@ logger = setup_logger("mongo_start_event_client", "logs/mongo_start_event_client
 
 
 class MongoStartEventClient:
-    def __init__(self, collection_name: str = "start_events_test", node_collection_name: str = "node_id_test"):
+    def __init__(self, collection_name: str = "start_events_test", node_collection_name: str = "node_id"):
         self._collection_name = collection_name
         self._node_collection_name = node_collection_name
 

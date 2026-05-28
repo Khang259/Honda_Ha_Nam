@@ -21,7 +21,7 @@ class StreamingService:
         self.jpeg_quality = 85
         self.target_fps = 10
         self.frame_delay = 1.0 / self.target_fps
-        self._mongo_client = MongoNodeIdClient(collection_name="node_id_test")
+        self._mongo_client = MongoNodeIdClient(collection_name="node_id")
     
     async def _resolve_cam_id(self, cam_id_param: str) -> Optional[str]:
         """

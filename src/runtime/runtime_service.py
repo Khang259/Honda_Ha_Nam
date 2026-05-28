@@ -20,6 +20,7 @@ from inference_core.state_manager import StateManager
 from inference_core.snapshot_manager import SnapshotManager
 from inference_core.camera_manager import CameraManager
 from inference_core.inference_engine import InferenceEngine
+from inference_core.inference_engine_pool import InferenceEnginePool
 from coordination.worker_manager import WorkerManager
 import config as _ai_config
 import api_http.state as api_state
@@ -27,6 +28,7 @@ from api_http.services.validate_pairs_service import ValidatePairsService
 from runtime.pairing import StartEventPairingOrchestrator
 from persistence.mongo.mongo_node_id_client import MongoNodeIdClient
 from api_http.settings import settings
+import torch
 
 
 @dataclass
@@ -91,15 +93,31 @@ class RuntimeService:
                 quality=SNAPSHOT_QUALITY,
             )
 
-        inference_engine = InferenceEngine(
-            model_path=MODEL_PATH,
-            max_queue_size=INFERENCE_MAX_QUEUE_SIZE,
-            max_batch_size=INFERENCE_MAX_BATCH_SIZE,
-            batch_timeout=INFERENCE_BATCH_TIMEOUT,
-            num_streams=INFERENCE_NUM_STREAMS,
-            initial_paused=True,
-        )
-        inference_engine.start()
+        gpu_count = 0
+        try:
+            if torch.cuda.is_available():
+                gpu_count = int(torch.cuda.device_count())
+        except Exception:
+            gpu_count = 0
+        if gpu_count <= 0:
+            gpu_count = 1
+
+        engines = []
+        for device_id in range(gpu_count):
+            engine = InferenceEngine(
+                model_path=MODEL_PATH,
+                max_queue_size=INFERENCE_MAX_QUEUE_SIZE,
+                max_batch_size=INFERENCE_MAX_BATCH_SIZE,
+                batch_timeout=INFERENCE_BATCH_TIMEOUT,
+                num_streams=INFERENCE_NUM_STREAMS,
+                initial_paused=True,
+                device_id=device_id,
+                hold_full_batch=True,
+            )
+            engine.start()
+            engines.append(engine)
+
+        inference_engine = InferenceEnginePool(engines)
 
         camera_zones = [c.get("area_name", c.get("zone")) for c in cameras]
         camera_manager = CameraManager(
@@ -130,6 +148,7 @@ class RuntimeService:
             "pairing_orchestrator": self._pairing_orchestrator,
             "snapshot_manager": snapshot_manager,
             "inference_engine": inference_engine,
+            "inference_engines": engines,
             "camera_manager": camera_manager,
             "worker_manager": self._worker_manager,
         }
