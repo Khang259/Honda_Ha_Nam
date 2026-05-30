@@ -1,0 +1,51 @@
+[{
+  "_id": {
+    "$oid": "69e874c24a015f7bd305c068"
+  },
+  "worker_id": "w1",
+  "capacity": {
+    "current_cameras": 38
+  },
+  "last_time": {
+    "$date": "2026-05-06T05:03:46.419Z"
+  },
+  "start_time": {
+    "$date": "2026-04-22T07:12:02.570Z"
+  },
+  "worker_ip": "192.168.1.30",
+  "last_time_vietnam": "2026-05-06 12:03:45"
+},
+{
+  "_id": {
+    "$oid": "69e875204a015f7bd305c069"
+  },
+  "worker_id": "w2",
+  "capacity": {
+    "current_cameras": 7
+  },
+  "last_time": {
+    "$date": "2026-05-06T05:03:44.578Z"
+  },
+  "start_time": {
+    "$date": "2026-04-22T07:13:36.220Z"
+  },
+  "worker_ip": "192.168.1.30",
+  "last_time_vietnam": "2026-05-06 12:03:44"
+},
+{
+  "_id": {
+    "$oid": "69e875424a015f7bd305c06a"
+  },
+  "worker_id": "w3",
+  "capacity": {
+    "current_cameras": 10
+  },
+  "last_time": {
+    "$date": "2026-04-23T06:59:31.924Z"
+  },
+  "start_time": {
+    "$date": "2026-04-22T07:14:10.842Z"
+  },
+  "worker_ip": "192.168.1.30",
+  "last_time_vietnam": "2026-04-23 13:59:31"
+}]

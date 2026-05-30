@@ -1,0 +1,466 @@
+[
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906ada3"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.102:554/Streaming/Channels/102",
+    "cameraId": 2,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE5",
+    "rois": {
+      "start_10000060": [
+        163,
+        156,
+        79,
+        66
+      ],
+      "start_10000059": [
+        491,
+        139,
+        73,
+        80
+      ]
+    },
+    "current_worker": null,
+    "fencing_token": 0,
+    "last_assigned": null
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906ada4"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.103:554/Streaming/Channels/102",
+    "cameraId": 3,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE5",
+    "rois": {
+      "start_10001763": [
+        183,
+        194,
+        33,
+        107
+      ],
+      "start_10001762": [
+        247,
+        213,
+        45,
+        103
+      ],
+      "start_10002233": [
+        293,
+        218,
+        42,
+        101
+      ],
+      "start_10002232": [
+        347,
+        257,
+        89,
+        66
+      ]
+    },
+    "current_worker": null,
+    "fencing_token": 0,
+    "last_assigned": null
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906ada5"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.104:554/Streaming/Channels/102",
+    "cameraId": 4,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE5",
+    "rois": {
+      "start_10002235": [
+        268,
+        274,
+        80,
+        62
+      ]
+    },
+    "current_worker": null,
+    "fencing_token": 0,
+    "last_assigned": null
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906ada6"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.105:554/Streaming/Channels/102",
+    "cameraId": 5,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE5",
+    "rois": {
+      "start_10001057": [
+        175,
+        93,
+        79,
+        62
+      ],
+      "start_10001056": [
+        171,
+        162,
+        84,
+        74
+      ],
+      "start_10001055": [
+        164,
+        233,
+        89,
+        75
+      ],
+      "start_10001054": [
+        160,
+        312,
+        89,
+        69
+      ],
+      "end_10002015": [
+        421,
+        154,
+        54,
+        45
+      ],
+      "end_10002016": [
+        423,
+        87,
+        55,
+        51
+      ]
+    },
+    "current_worker": null,
+    "fencing_token": 0,
+    "last_assigned": null
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906ada7"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.106:554/Streaming/Channels/102",
+    "cameraId": 6,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE5",
+    "rois": {
+      "start_10001050": [
+        403,
+        77,
+        87,
+        65
+      ],
+      "start_10001051": [
+        405,
+        158,
+        86,
+        71
+      ],
+      "start_10001052": [
+        402,
+        245,
+        88,
+        72
+      ],
+      "start_10001053": [
+        399,
+        326,
+        99,
+        72
+      ]
+    },
+    "current_worker": null,
+    "fencing_token": 0,
+    "last_assigned": null
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906ada8"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.110:554/Streaming/Channels/102",
+    "cameraId": 10,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE5",
+    "rois": {
+      "end_10000759": [
+        89,
+        158,
+        108,
+        148
+      ],
+      "end_10000760": [
+        217,
+        154,
+        136,
+        148
+      ],
+      "end_10000761": [
+        356,
+        139,
+        111,
+        151
+      ]
+    },
+    "current_worker": null,
+    "fencing_token": 0,
+    "last_assigned": null
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906ada9"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.111:554/Streaming/Channels/102",
+    "cameraId": 11,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE5",
+    "rois": {
+      "end_10000396": [
+        157,
+        154,
+        99,
+        105
+      ],
+      "end_10000394": [
+        367,
+        195,
+        111,
+        55
+      ]
+    },
+    "current_worker": null,
+    "fencing_token": 0,
+    "last_assigned": null
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adaa"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.112:554/Streaming/Channels/102",
+    "cameraId": 12,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE5",
+    "rois": {
+      "start_10000391": [
+        25,
+        234,
+        107,
+        85
+      ],
+      "end_10000388": [
+        145,
+        244,
+        108,
+        75
+      ],
+      "end_10000385": [
+        258,
+        235,
+        121,
+        76
+      ],
+      "end_10000382": [
+        376,
+        228,
+        124,
+        78
+      ]
+    },
+    "current_worker": null,
+    "fencing_token": 0,
+    "last_assigned": null
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adab"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.113:554/Streaming/Channels/102",
+    "cameraId": 13,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE5",
+    "rois": {
+      "start_10001287": [
+        253,
+        185,
+        134,
+        142
+      ]
+    },
+    "current_worker": null,
+    "fencing_token": 0,
+    "last_assigned": null
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adac"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.115:554/Streaming/Channels/102",
+    "cameraId": 15,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE5",
+    "rois": {
+      "start_10001290": [
+        220,
+        212,
+        166,
+        109
+      ]
+    },
+    "current_worker": null,
+    "fencing_token": 0,
+    "last_assigned": null
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adad"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.114:554/Streaming/Channels/102",
+    "cameraId": 14,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE5",
+    "rois": {
+      "end_10000379": [
+        68,
+        205,
+        88,
+        149
+      ],
+      "end_10000376": [
+        163,
+        199,
+        122,
+        164
+      ],
+      "end_10000373": [
+        306,
+        200,
+        115,
+        160
+      ],
+      "end_10000370": [
+        426,
+        209,
+        95,
+        143
+      ]
+    },
+    "current_worker": null,
+    "fencing_token": 0,
+    "last_assigned": null
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adae"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.116:554/Streaming/Channels/102",
+    "cameraId": 16,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE5",
+    "rois": {
+      "end_10000367": [
+        193,
+        108,
+        63,
+        86
+      ],
+      "end_10000364": [
+        262,
+        77,
+        53,
+        109
+      ],
+      "end_10000361": [
+        321,
+        76,
+        57,
+        108
+      ],
+      "start_10001293": [
+        207,
+        352,
+        188,
+        125
+      ]
+    },
+    "current_worker": null,
+    "fencing_token": 0,
+    "last_assigned": null
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adaf"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.117:554/Streaming/Channels/102",
+    "cameraId": 17,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE5",
+    "rois": {
+      "start_10001299": [
+        92,
+        356,
+        120,
+        90
+      ],
+      "start_10001295": [
+        468,
+        242,
+        140,
+        93
+      ]
+    },
+    "current_worker": null,
+    "fencing_token": 0,
+    "last_assigned": null
+  },
+  {
+    "_id": {
+      "$oid": "69e9c895bc4928bde906adb0"
+    },
+    "url": "rtsp://admin:Thado12@@192.168.1.118:554/Streaming/Channels/102",
+    "cameraId": 18,
+    "source_owner": 1,
+    "type_model": 1,
+    "node_id": "1",
+    "area_name": "AE5",
+    "rois": {
+      "end_10001495": [
+        420,
+        98,
+        124,
+        137
+      ],
+      "start_10001498": [
+        92,
+        111,
+        87,
+        72
+      ]
+    },
+    "current_worker": null,
+    "fencing_token": 0,
+    "last_assigned": null
+  }
+]
