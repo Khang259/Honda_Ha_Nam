@@ -38,7 +38,7 @@ flowchart TB
 
     subgraph storage [Storage]
         MongoSE[start_events_test]
-        MongoVP[validate_pairs_test]
+        MongoVP[validate_pairs]
         ICS[ICS Server]
     end
 

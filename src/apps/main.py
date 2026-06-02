@@ -6,8 +6,8 @@ import signal
 import sys
 import uvicorn
 
-from api_http.settings import settings
-from api_http import ai_server
+from api.settings import settings
+from api import ai_server
 from shared.setup_log import setup_logger
 
 logger = setup_logger("ai_main", "logs/ai_main/log")
