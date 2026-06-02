@@ -27,6 +27,8 @@ from api.services.validate_pairs_service import ValidatePairsService
 from pairing_orchestrator.orchestrator import StartEventPairingOrchestrator
 from api.persistence.mongo_node_id_client import MongoNodeIdClient
 from api.settings import settings
+import torch
+from inference_engine.inference_engine_pool import InferenceEnginePool
 
 
 @dataclass
@@ -93,15 +95,31 @@ class RuntimeService:
                 quality=SNAPSHOT_QUALITY,
             )
 
-        inference_engine = InferenceEngine(
-            model_path=MODEL_PATH,
-            max_queue_size=INFERENCE_MAX_QUEUE_SIZE,
-            max_batch_size=INFERENCE_MAX_BATCH_SIZE,
-            batch_timeout=INFERENCE_BATCH_TIMEOUT,
-            num_streams=INFERENCE_NUM_STREAMS,
-            initial_paused=True,
-        )
-        inference_engine.start()
+        gpu_count = 0
+        try:
+            if torch.cuda.is_available():
+                gpu_count = int(torch.cuda.device_count())
+        except Exception:
+            gpu_count = 0
+        if gpu_count <= 0:
+            gpu_count = 1
+
+        engines = []
+        for device_id in range(gpu_count):
+            engine = InferenceEngine(
+                model_path=MODEL_PATH,
+                max_queue_size=INFERENCE_MAX_QUEUE_SIZE,
+                max_batch_size=INFERENCE_MAX_BATCH_SIZE,
+                batch_timeout=INFERENCE_BATCH_TIMEOUT,
+                num_streams=INFERENCE_NUM_STREAMS,
+                initial_paused=True,
+                device_id=device_id,
+                hold_full_batch=True,
+            )
+            engine.start()
+            engines.append(engine)
+
+        inference_engine = InferenceEnginePool(engines)
 
         camera_zones = [c.get("area_name", c.get("zone")) for c in cameras]
         camera_manager = CameraManager(
@@ -139,6 +157,7 @@ class RuntimeService:
             "pairing_orchestrator": self._pairing_orchestrator,
             "snapshot_manager": snapshot_manager,
             "inference_engine": inference_engine,
+            "inference_engines": engines,
             "camera_manager": camera_manager,
             "worker_manager": self._worker_manager,
             "cluster_listener": self._cluster_listener,

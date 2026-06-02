@@ -28,6 +28,8 @@ class InferenceEngine(threading.Thread):
         batch_timeout,
         num_streams,
         initial_paused: bool = False,
+        device_id: int = 0,
+        hold_full_batch: bool = True,
     ):
         """
         Args:
@@ -45,6 +47,9 @@ class InferenceEngine(threading.Thread):
         self.max_batch_size = max_batch_size
         self.batch_timeout = batch_timeout
         self.num_streams = num_streams
+        self.device_id = int(device_id)
+        self.device = f"cuda:{self.device_id}"
+        self.hold_full_batch = bool(hold_full_batch)
         self.shared_queue = queue.Queue(maxsize=max_queue_size)
         self.result_queues = {}
         self.streams = []
@@ -96,7 +101,10 @@ class InferenceEngine(threading.Thread):
     
     def _collect_batch(self):
         """
-        Collect batch frames từ shared queue với timeout.
+        Collect batch frames từ shared queue.
+
+        - hold_full_batch=True: chỉ trả batch khi đủ đúng self.max_batch_size.
+        - hold_full_batch=False: gom batch theo timeout self.batch_timeout như logic cũ.
         
         Returns:
             tuple: (batch_frames, cam_ids) - list of frames và corresponding cam_ids
@@ -105,27 +113,41 @@ class InferenceEngine(threading.Thread):
         """
         batch = []
         cam_ids = []
+        if self.hold_full_batch:
+            # Block until a full batch is collected, but wake up periodically
+            # to allow stop() / pause() to take effect.
+            while self.running and len(batch) < self.max_batch_size:
+                if self._paused.is_set():
+                    return [], []
+                try:
+                    frame, cam_id = self.shared_queue.get(timeout=0.1)
+                    batch.append(frame)
+                    cam_ids.append(cam_id)
+                except queue.Empty:
+                    continue
+            return batch, cam_ids
+
         start_time = time.time()
-        
-        while len(batch) < self.max_batch_size:
-            timeout = self.batch_timeout - (time.time() - start_time) 
+        while self.running and len(batch) < self.max_batch_size:
+            if self._paused.is_set():
+                return [], []
+            timeout = self.batch_timeout - (time.time() - start_time)
             if timeout <= 0:
                 break
-            
             try:
                 frame, cam_id = self.shared_queue.get(timeout=timeout)
                 batch.append(frame)
                 cam_ids.append(cam_id)
             except queue.Empty:
                 break
-        
         return batch, cam_ids
     
     def _load_model(self):
         """Load YOLO model instance và tạo CUDA streams."""
         try:
             self.model = YOLO(self.model_path, verbose=False)
-            self.streams = [torch.cuda.Stream() for _ in range(self.num_streams)] #create CUDA streams
+            with torch.cuda.device(self.device_id):
+                self.streams = [torch.cuda.Stream() for _ in range(self.num_streams)] #create CUDA streams
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
             raise
@@ -145,7 +167,7 @@ class InferenceEngine(threading.Thread):
             results = self.model(frames_batch, 
                                conf=0.3, #Phát hiện object với confidence score >= 0.3
                                max_det=15, #Số lượng detections tối đa trong 1 batch
-                               device='cuda',
+                               device=self.device,
                                verbose=False,
                                stream=True) #Chạy inference theo cơ chế async
             

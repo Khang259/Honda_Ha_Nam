@@ -49,7 +49,7 @@ def main():
     # Import PAIRS từ config_origin
     import sys
     sys.path.insert(0, '.')
-    from config_origin import (
+    from config_origin_update import (
         PAIRS_AE_5,
         PAIRS_AE_6,
         PAIRS_SUB_5,
@@ -92,7 +92,7 @@ def main():
     print(f"✅ Converted {len(l6_pairs)} pairs from PAIR_6L (6L)")
     
     # Export ra JSON file
-    output_file = "pairs_export.json"
+    output_file = "pairs_export_21052026.json"
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(all_pairs, f, indent=2, ensure_ascii=False)
     

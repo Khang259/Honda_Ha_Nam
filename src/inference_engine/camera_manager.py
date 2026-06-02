@@ -25,6 +25,16 @@ class CameraManager:
         self._node_id_to_cam = {}
         self._build_node_id_to_cam()
 
+    def _get_inference_engine_for_camera_index(self, camera_index: int):
+        """Chọn InferenceEngine cho camera (hỗ trợ pool/round-robin)."""
+        engine = self.inference_engine
+        getter = getattr(engine, "get_engine_for_camera_index", None)
+        if callable(getter):
+            selected = getter(camera_index)
+            if selected is not None:
+                return selected
+        return engine
+
     def _get_cam_url(self, cam: dict) -> str:
         return cam.get("url")
 
@@ -89,14 +99,15 @@ class CameraManager:
             cam_id = f"cam_{i}_{camera_id}"
 
             result_queue = queue.Queue(maxsize=10)
-            self.inference_engine.register_camera(cam_id, result_queue)
+            engine = self._get_inference_engine_for_camera_index(i)
+            engine.register_camera(cam_id, result_queue)
 
             rois_internal = self._get_internal_rois(cam)
             thread = CameraProcessor(
                 cam_url,
                 rois_internal,
                 self.state_manager,
-                self.inference_engine,
+                engine,
                 result_queue,
                 cam_id,
                 snapshot_manager=self.snapshot_manager, #This can be deleted cause dont need to snapshot
