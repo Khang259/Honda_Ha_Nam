@@ -2,7 +2,12 @@ import subprocess
 import threading
 import queue
 import numpy as np
-from config import GPU_DECODE_BUFFER_SIZE, FFMPEG_RECONNECT_DELAY, FFMPEG_MAX_RETRIES
+from config import (
+    GPU_DECODE_BUFFER_SIZE,
+    FFMPEG_RECONNECT_DELAY,
+    FFMPEG_MAX_RETRIES,
+    FFMPEG_RTSP_TIMEOUT_US,
+)
 from shared.setup_log import setup_logger
 
 logger = setup_logger("gpu_video_decoder", "logs/gpu_decoder/log")
@@ -60,18 +65,23 @@ class GPUVideoDecoder:
         if self.running:
             return
 
+        timeout_us = str(int(FFMPEG_RTSP_TIMEOUT_US))
+        # -rw_timeout: timeout đọc mạng (us). -timeout: một số bản ffmpeg RTSP dùng tương tự.
+        # -stimeout: bản cũ (RTSP); ffmpeg mới có thể bỏ qua option lạ → vẫn chạy.
         cmd = [
             "ffmpeg",
             "-hwaccel", "cuda",
-            # "-hwaccel_output_format", "cuda",
             "-rtsp_transport", "tcp",
             "-fflags", "nobuffer",
             "-flags", "low_delay",
+            "-rw_timeout", timeout_us,
+            "-timeout", timeout_us,
+            "-stimeout", timeout_us,
             "-i", self.rtsp_url,
             "-f", "rawvideo",
             "-pix_fmt", "bgr24",
             "-s", f"{self.width}x{self.height}",
-            "-"
+            "-",
         ]
 
         try:
@@ -125,11 +135,18 @@ class GPUVideoDecoder:
         """Dừng decode loop, kill process FFmpeg, chờ tối đa 2s; giải phóng tài nguyên."""
         self.running = False
         self._opened = False
-        
+
         if self.process:
             try:
                 self.process.kill()
                 self.process.wait(timeout=2)
-            except:
-                pass
+            except Exception:
+                try:
+                    self.process.poll()
+                except Exception:
+                    pass
             self.process = None
+
+        if self.thread and self.thread.is_alive():
+            self.thread.join(timeout=1.0)
+        self.thread = None

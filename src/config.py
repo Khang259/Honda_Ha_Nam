@@ -13,6 +13,10 @@ USE_GPU_DECODE = True
 GPU_DECODE_BUFFER_SIZE = 10**6  # 1MB buffer for subprocess pipe
 FFMPEG_RECONNECT_DELAY = 1.0    # seconds
 FFMPEG_MAX_RETRIES = 5
+# RTSP socket timeout (microseconds) — ffmpeg -rw_timeout / -timeout
+FFMPEG_RTSP_TIMEOUT_US = 5_000_000  # 5s
+# Jitter khi mở nhiều ffmpeg cùng lúc (RUN / start threads)
+CAMERA_START_JITTER_MAX_SECONDS = 2.5
 
 INFERENCE_MAX_QUEUE_SIZE = 500
 INFERENCE_MAX_BATCH_SIZE = 24

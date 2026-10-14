@@ -1,6 +1,6 @@
 from typing import Dict, Any
 from fastapi import APIRouter
-from persistence.mongo.mongo_start_event_client import MongoStartEventClient
+from pairing_orchestrator.persistence.mongo_start_event_client import MongoStartEventClient
 from shared.setup_log import setup_logger
 
 logger = setup_logger("admin_routes", "logs/admin_routes/log")

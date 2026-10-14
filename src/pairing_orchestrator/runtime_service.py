@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from config import (
     ICS_URL,
@@ -131,6 +131,11 @@ class RuntimeService:
         )
         camera_manager.start()
 
+        # Hot-apply khi rebalance đổi ownership (lỗi #4)
+        self._worker_manager.set_assignment_apply_callback(
+            self._apply_assignment_to_cameras
+        )
+
         self._pairing_orchestrator = StartEventPairingOrchestrator(
             worker_id=settings.WORKER_ID,
             state_manager=state_manager,
@@ -204,6 +209,7 @@ class RuntimeService:
         # Shutdown worker manager
         if self._worker_manager:
             try:
+                self._worker_manager.set_assignment_apply_callback(None)
                 await self._worker_manager.shutdown()
             except Exception as e:
                 print(f"Error shutting down worker manager: {e}")
@@ -227,13 +233,69 @@ class RuntimeService:
         self._heartbeat_task = None
         self._cluster_listener = None
         self._cluster_listener_task = None
+        self._pairing_orchestrator = None
         api_state.set_state_manager(None)
         api_state.set_camera_manager(None)
         api_state.set_inference_engine(None)
+        api_state.set_pairing_orchestrator(None)
 
         return self.status()
 
-    async def reload(self, area: str) -> Dict[str, Any]:
+    async def _cluster_desired_is_run(self) -> bool:
+        try:
+            from load_balancing.persistence.mongo_cluster_control_client import (
+                MongoClusterControlClient,
+            )
+            status = await MongoClusterControlClient().get_current_status()
+            return str(status.get("desired_state", "STOP")).upper() == "RUN"
+        except Exception:
+            return False
+
+    async def _apply_assignment_to_cameras(
+        self,
+        to_claim: List[int],
+        to_release: List[int],
+        my_camera_ids: Set[int],
+    ) -> None:
+        """
+        Áp dụng kết quả rebalance lên CameraManager đang chạy:
+        release → remove_camera; claim → add_camera (enabled theo desired_state).
+        """
+        camera_manager = self._components.get("camera_manager")
+        if not camera_manager or not self._worker_manager:
+            return
+
+        for camera_id in to_release:
+            try:
+                camera_manager.remove_camera(int(camera_id))
+            except Exception as e:
+                print(f"remove_camera {camera_id} failed: {e}")
+
+        if to_claim:
+            configs = await self._worker_manager.get_assigned_camera_configs()
+            by_id: Dict[int, Dict[str, Any]] = {}
+            for cfg in configs:
+                try:
+                    by_id[int(cfg["cameraId"])] = cfg
+                except Exception:
+                    continue
+
+            enabled = await self._cluster_desired_is_run()
+            for camera_id in to_claim:
+                cfg = by_id.get(int(camera_id))
+                if not cfg:
+                    print(f"No config for claimed cameraId={camera_id}; skip add")
+                    continue
+                try:
+                    camera_manager.add_camera(cfg, initially_enabled=enabled)
+                except Exception as e:
+                    print(f"add_camera {camera_id} failed: {e}")
+
+        _ai_config.CAMERAS = list(getattr(camera_manager, "cameras_config", []) or [])
+        self._config_meta["cameras_count"] = len(_ai_config.CAMERAS)
+
+    async def reload(self, area: str | None = None) -> Dict[str, Any]:
+        """Restart toàn bộ runtime. Tham số area giữ tương thích, không dùng."""
         prev = self.status()
         await self.stop()
         current = await self.start()

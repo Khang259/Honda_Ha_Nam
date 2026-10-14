@@ -2,7 +2,7 @@ from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException
 
-from persistence.mongo.mongo_pair_client import MongoPairClient
+from pairing_orchestrator.persistence.mongo_pair_client import MongoPairClient
 from api.schemas.pair import (
     AddPairsPayload,
     DeletePairsPayload,

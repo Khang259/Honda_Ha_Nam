@@ -1,0 +1,690 @@
+[
+  {
+    "sheet": "Tổng hợp",
+    "rows": [
+      [
+        "Danh sách lỗi cluster control - nhánh update_load_balancing (commit 021501d)",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "Tiến độ sửa theo mức ưu tiên",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "Ưu tiên",
+        "Tổng",
+        "Chưa làm",
+        "Đang làm",
+        "Đã sửa",
+        "Đã kiểm tra",
+        "% hoàn thành"
+      ],
+      [
+        "P0",
+        "8",
+        "8",
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      [
+        "P1",
+        "8",
+        "8",
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      [
+        "P2",
+        "5",
+        "5",
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      [
+        "P3",
+        "5",
+        "5",
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      [
+        "Tổng",
+        "26",
+        "26",
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "Kiểm thử",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "Số kịch bản",
+        "9",
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "Đạt",
+        "0",
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "Không đạt",
+        "0",
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "Cách dùng",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "Ô nền vàng là ô bạn cập nhật: Trạng thái, Người phụ trách, Ghi chú (trang 'Danh sách lỗi'); Kết quả thực tế, Đạt? (trang 'Kiểm tra sau sửa').",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "Ví dụ một dòng đã cập nhật: Trạng thái = 'Đang làm', Người phụ trách = 'Khang', Ghi chú = 'Đã tách _alive, đang test T1'.",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "Các bảng trong trang này tự tính lại theo Trạng thái và Đạt?. Chữ xanh dương là số nhập tay; chữ đen là công thức.",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "P0: sai hoặc không failover được; P1: cao; P2: môi trường/vận hành; P3: nhỏ. 'Cần đo trên máy thật' nghĩa là suy luận từ code, chưa đo.",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    ]
+  },
+  {
+    "sheet": "Danh sách lỗi",
+    "rows": [
+      [
+        "ID",
+        "Ưu tiên",
+        "Nhóm",
+        "Vị trí (file:dòng)",
+        "Lỗi",
+        "Hướng sửa",
+        "Mức xác minh",
+        "Trạng thái",
+        "Người phụ trách",
+        "Ghi chú"
+      ],
+      [
+        "1",
+        "P0",
+        "Pairing/Dispatch",
+        "orchestrator.py:61, :144-155; publisher.py:23; dispatcher.py:116; mongo_pool.py:55-73",
+        "Sau STOP rồi RUN, publisher/consumer/dispatcher thoát vĩnh viễn (loop là while is_running(); resume() chỉ đổi cờ, không tạo lại task). Dispatch chết nhưng ack vẫn báo thành công.",
+        "Tách _alive (vòng đời) khỏi _paused; khi paused thì sleep + continue, không thoát loop.",
+        "Đã xác minh (mô phỏng)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "2",
+        "P0",
+        "Pairing/Dispatch",
+        "state_manager.py:61-62, :74-75",
+        "process_starts tính current_time - data['time'] > 30 trên trạng thái cũ giữ qua STOP, nên ngay khi RUN sẽ gửi lệnh từ dữ liệu cũ. Lộ ra sau khi sửa lỗi 1.",
+        "Reset state các điểm khi RUN; thêm thời gian chờ ổn định trước khi dispatch.",
+        "Cần đo trên máy thật",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "3",
+        "P0",
+        "Pairing/Dispatch",
+        "orchestrator.py:64-65",
+        "resume() gọi .clear() trên _disabled_nodes/_disabled_areas nên RUN toàn cluster (hoặc worker restart) mở lại khu vực đang khóa tay. Route zone-stop chỉ chạy local trên worker nhận request.",
+        "Không clear khi RUN từ cluster; lưu trạng thái khóa vào Mongo dùng chung.",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "4",
+        "P0",
+        "Failover",
+        "runtime_service.py:78, :125; worker_manager.py; camera_processor.py:57-59",
+        "Chặn failover: rebalance chỉ đổi assigned_camera_ids trong DB; CameraManager dựng một lần và dùng danh sách theo chỉ số.",
+        "Thêm add_camera/remove_camera lúc chạy; đổi enabled và camera_zones sang dict theo camera_id; camera mới theo desired_state hiện tại.",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "5",
+        "P0",
+        "Failover",
+        "camera_assignment_service.py:20",
+        "Chia đều theo khối liên tiếp: w1 sập thì 41/78 camera đổi chủ (chỉ cần 20).",
+        "Giữ chủ cũ, chỉ chia camera mồ côi cho máy ít tải nhất; khi máy quay lại, lấy bớt từ máy tải cao nhất.",
+        "Đã xác minh (mô phỏng)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "6",
+        "P0",
+        "Failover",
+        "worker_registry_service.py:32, :78, :116; mongo_start_event_client.py:125",
+        "Heartbeat, mốc cắt và lease claim_until dùng datetime.utcnow() của từng máy; lệch giờ giữa 4 máy gây nhận định sai.",
+        "Dùng giờ server ($$NOW trong update pipeline và $expr); đồng bộ giờ Windows bằng w32tm.",
+        "Cần đo trên máy thật",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "7",
+        "P0",
+        "Failover",
+        "worker_registry_service.py:130 (return []); camera_assignment_service.py:238 (validate_token)",
+        "Lỗi Mongo bị hiểu là 'không có worker' hoặc 'đã mất camera'. Khi nối runtime vào rebalance sẽ dừng decoder hàng loạt lúc bầu cử primary.",
+        "Ném lỗi hoặc trả 'unknown'; caller bỏ qua lần rebalance đó.",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "8",
+        "P0",
+        "Failover",
+        "worker_manager.py:92",
+        "Chỉ so sánh số lượng worker: thay worker hoặc thêm camera mới trong DB không kích hoạt rebalance; không có độ trễ chống nhiễu.",
+        "So sánh tập worker_id và tập camera_id; chỉ coi worker chết sau N lần thiếu heartbeat liên tiếp.",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "9",
+        "P1",
+        "Cluster control",
+        "cluster_control_listener.py:170 (_watch_loop), :116, :149",
+        "Nếu stream kết thúc không ném exception, listener chết im lặng; lệnh lỗi ở chế độ stream không được retry; không có vòng đối soát định kỳ.",
+        "Luôn chạy vòng đối soát vài giây/lần (stream chỉ để giảm độ trễ); giám sát và tự khởi động lại task.",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "10",
+        "P1",
+        "Cluster control",
+        "cluster_control_listener.py:48, :138, :161, :146",
+        "token > last_applied làm lệnh bị bỏ qua nếu DB bị reset (token về 1); log chỉ ở mức DEBUG.",
+        "Dùng != hoặc thêm epoch; log WARNING khi token nhỏ hơn.",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "11",
+        "P1",
+        "Cluster control",
+        "cameras.py:279; inference_engine_pool.py:33, :42, :51",
+        "expected_workers: 4 cứng; except Exception: pass khiến ack vẫn ghi dù engine lỗi.",
+        "Lấy số worker từ registry; ack kèm số camera sống, trạng thái engine, số task còn chạy.",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "12",
+        "P1",
+        "API/Bảo mật",
+        "runtime.py:19; settings.py:12",
+        "settings.AREA_NAME bị comment nên /runtime/reload không có ?area= sẽ lỗi AttributeError.",
+        "Khôi phục trường hoặc bỏ tham chiếu.",
+        "Đã xác minh (chạy test)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "13",
+        "P1",
+        "API/Bảo mật",
+        "app_factory.py:40-41; /engine-control/*",
+        "Không có xác thực, CORS '*'. Máy nào trong LAN cũng dừng được cả cluster.",
+        "API key hoặc allow-list IP; yêu cầu body JSON để trình duyệt buộc preflight.",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "14",
+        "P1",
+        "Camera/Decoder",
+        "camera_processor.py:66-73; gpu_video_decoder.py:67, :78-81",
+        "RUN khởi động ~78 tiến trình ffmpeg trong cỡ 1 giây; ffmpeg không có timeout RTSP; kill() kèm wait(2) có thể bỏ sót tiến trình.",
+        "Thêm jitter theo worker và camera; thêm timeout RTSP (-timeout hoặc -stimeout tùy bản ffmpeg); kiểm tra tasklist sau nhiều chu kỳ.",
+        "Cần đo trên máy thật",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "15",
+        "P1",
+        "Failover",
+        "mongo_start_event_client.py (upsert_ready)",
+        "Fencing token chỉ được lưu và so sánh trong heartbeat; không nơi nào từ chối thao tác của worker cũ.",
+        "Kiểm token khi publish hoặc claim start event.",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "16",
+        "P1",
+        "Mongo/Hạ tầng",
+        "Cấu hình MongoDB / MongoDB_URL",
+        "4 thành viên có phiếu thì đa số là 3, chỉ chịu được 1 máy hỏng; chia mạng 2-2 mất primary. URL hiện chỉ là localhost.",
+        "Số phiếu lẻ (3 phiếu + 1 votes:0, hoặc arbiter); URL liệt kê đủ 4 host, replicaSet=, hostname phân giải được từ cả 4 máy.",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "17",
+        "P2",
+        "Vận hành Windows",
+        "main.py:49-53",
+        "Với log_level=info, access log ghi ra console đồng bộ; click vào console cổ điển (QuickEdit) có thể treo event loop và heartbeat.",
+        "AI_LOG_LEVEL=warning hoặc access_log=False; tắt QuickEdit.",
+        "Cần đo trên máy thật",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "18",
+        "P2",
+        "Vận hành Windows",
+        "setup_log.py:9-27",
+        "Ngày file log cố định lúc khởi động, chỉ dọn lúc start, mức DEBUG; 4 worker chung thư mục thì lẫn log.",
+        "Đưa WORKER_ID vào đường dẫn log; dùng rotating handler.",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "19",
+        "P2",
+        "Vận hành Windows",
+        "database.py:21",
+        "Ghi MongoDB URL (có thể kèm mật khẩu) vào log.",
+        "Che thông tin đăng nhập trước khi log.",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "20",
+        "P2",
+        "Mongo/Hạ tầng",
+        "Triển khai; requirements.txt",
+        "Chạy từ terminal không tự khởi động lại; requirements.txt trỏ D:/TensorRT-10.15.1.29/...; .engine có thể không chạy trên GPU hoặc phiên bản TensorRT khác.",
+        "Watchdog (NSSM hoặc Task Scheduler); 4 máy cùng GPU/driver/TensorRT hoặc build engine riêng mỗi máy.",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "21",
+        "P2",
+        "Camera/Decoder",
+        "config.py:18",
+        "Mỗi máy còn lại xử lý 26 camera sau khi sập (+30-37%), trong khi batch là 24 với hold_full_batch.",
+        "Kiểm tra tải GPU, NVDEC và số kết nối RTSP ở mức 26 camera/máy.",
+        "Cần đo trên máy thật",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "22",
+        "P3",
+        "Khác",
+        "mongo_cluster_control_client.py:42-43, :138-139; registry",
+        "datetime.utcnow() (deprecated từ Python 3.12) cộng tay 7 giờ.",
+        "Dùng datetime.now(timezone.utc); định dạng giờ VN ở lớp hiển thị.",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "23",
+        "P3",
+        "Khác",
+        "mongo_cluster_control_client.py:59",
+        "return_document=True nên là ReturnDocument.AFTER.",
+        "Đổi sang ReturnDocument.AFTER.",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "24",
+        "P3",
+        "Khác",
+        "Collection acks (tài liệu thiết kế)",
+        "Index duy nhất (worker_id, token) có trong tài liệu nhưng không có trong code.",
+        "Tạo index khi khởi động (ensure_indexes).",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "25",
+        "P3",
+        "Khác",
+        "mongo_start_event_client.py:25",
+        "Collection start_events_test đang dùng cho production.",
+        "Đổi tên collection qua cấu hình.",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ],
+      [
+        "26",
+        "P3",
+        "Khác",
+        "RuntimeService.stop()",
+        "Không đặt lại api_state.pairing_orchestrator khi dừng.",
+        "Set None trong stop().",
+        "Đã xác minh (đọc code)",
+        "Chưa làm",
+        null,
+        null
+      ]
+    ]
+  },
+  {
+    "sheet": "Kiểm tra sau sửa",
+    "rows": [
+      [
+        "Mã",
+        "Lỗi liên quan",
+        "Kịch bản",
+        "Kết quả mong đợi",
+        "Kết quả thực tế",
+        "Đạt?"
+      ],
+      [
+        "T1",
+        "1, 2, 3",
+        "stop-all, đợi 5 giây, start-all.",
+        "Có start event mới trong Mongo (start_events_test); khu vực đã khóa vẫn khóa.",
+        null,
+        "Chưa chạy"
+      ],
+      [
+        "T2",
+        "4, 5, 7, 8",
+        "taskkill /F một worker cùng mongod của nó; đo thời gian phát hiện, thời gian camera chạy lại trên máy khác.",
+        "Camera mồ côi (19-20) chạy lại trên máy còn lại; số camera đổi chủ bằng số camera mồ côi.",
+        null,
+        "Chưa chạy"
+      ],
+      [
+        "T3",
+        "7",
+        "Kill mongod đang là primary.",
+        "Không camera nào bị release; ghi lại thời gian bầu cử.",
+        null,
+        "Chưa chạy"
+      ],
+      [
+        "T4",
+        "6",
+        "Mô phỏng lệch giờ +40 giây trên một worker (sửa tạm hàm lấy giờ).",
+        "Không rebalance sai, không ping-pong camera giữa các worker.",
+        null,
+        "Chưa chạy"
+      ],
+      [
+        "T5",
+        "10",
+        "Xóa document engine_control_status rồi gửi lệnh mới.",
+        "Lệnh vẫn được tất cả worker áp dụng.",
+        null,
+        "Chưa chạy"
+      ],
+      [
+        "T6",
+        "4, 5",
+        "Cho worker đã sập quay lại (3 -> 4 máy).",
+        "Số camera di chuyển xấp xỉ mức tối thiểu (~19).",
+        null,
+        "Chưa chạy"
+      ],
+      [
+        "T7",
+        "9",
+        "Làm change stream đóng hoặc lỗi trên một worker.",
+        "Listener vẫn áp dụng lệnh nhờ vòng đối soát.",
+        null,
+        "Chưa chạy"
+      ],
+      [
+        "T8",
+        "14",
+        "Lặp STOP/RUN ít nhất 20 lần; theo dõi tasklist | findstr ffmpeg, VRAM, thời gian RUN -> detection đầu tiên.",
+        "Số tiến trình ffmpeg và VRAM không tăng dần; thời gian ổn định.",
+        null,
+        "Chưa chạy"
+      ],
+      [
+        "T9",
+        "17",
+        "Click vào cửa sổ console của một worker trong 60 giây.",
+        "Heartbeat không dừng; worker không bị coi là chết.",
+        null,
+        "Chưa chạy"
+      ]
+    ]
+  },
+  {
+    "sheet": "Số liệu chia camera",
+    "rows": [
+      [
+        "Số camera đổi chủ khi 1 máy sập (thuật toán hiện tại, 78 camera)",
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "Tình huống",
+        "Camera mồ côi (tối thiểu phải chuyển)",
+        "Camera đổi chủ (hiện tại)",
+        "Chuyển thừa giữa máy khỏe",
+        "Chuyển thừa / tối thiểu"
+      ],
+      [
+        "w1 sập",
+        "20",
+        "41",
+        "21",
+        "1.05"
+      ],
+      [
+        "w2 sập",
+        "20",
+        "27",
+        "7",
+        "0.35"
+      ],
+      [
+        "w3 sập",
+        "19",
+        "25",
+        "6",
+        "0.315789473684211"
+      ],
+      [
+        "w4 sập",
+        "19",
+        "37",
+        "18",
+        "0.947368421052632"
+      ],
+      [
+        "w3 quay lại (3 -> 4 máy)",
+        "19",
+        "25",
+        "6",
+        "0.315789473684211"
+      ],
+      [
+        "Trung bình (4 trường hợp sập)",
+        null,
+        null,
+        "13",
+        "0.665789473684211"
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "Nguồn số liệu: tôi chạy chính hàm calculate_assignment_for_camera_ids của repo (commit 021501d) với 78 camera trong cameras_export_21052026.json, workers w1..w4. Hai cột xanh dương là số nhập tay từ kết quả chạy đó; ID camera thực tế trong DB hiện tại có thể khác.",
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "Hàng 'w3 quay lại': mức tối thiểu ~19 là số camera mà w3 sẽ nhận lại (xấp xỉ).",
+        null,
+        null,
+        null,
+        null
+      ]
+    ]
+  }
+]

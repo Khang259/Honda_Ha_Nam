@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
 from persistence.database import get_collection
 from shared.setup_log import setup_logger
@@ -52,7 +52,15 @@ class MongoStartPool:
                 if nid:
                     self.local_start_pool[str(nid)] = d
 
-    async def consumer_loop(self, is_running: Callable[[], bool]) -> None:
+    async def consumer_loop(
+        self,
+        is_alive: Callable[[], bool],
+        is_paused: Optional[Callable[[], bool]] = None,
+    ) -> None:
+        """
+        Loop sống theo is_alive. Khi paused vẫn đồng bộ pool (để sẵn sàng khi RUN),
+        chỉ dừng hẳn khi is_alive=False (stop process).
+        """
         col = get_collection(self._collection_name)
         await self.load_initial()
         try:
@@ -65,13 +73,15 @@ class MongoStartPool:
             ]
             async with col.watch(pipeline, full_document="updateLookup") as stream:
                 async for change in stream:
-                    if not is_running():
+                    if not is_alive():
                         break
+                    # Khi paused vẫn apply để pool không bị cũ khi resume
                     await self.apply_change(change)
         except Exception as e:
             logger.warning("Change stream unavailable (%s); polling start_events", e)
-            while is_running():
+            while is_alive():
                 try:
+                    # Poll kể cả khi paused — giữ pool ấm
                     await self.poll_pool()
                 except Exception as ex:
                     logger.error("poll pool error: %s", ex)

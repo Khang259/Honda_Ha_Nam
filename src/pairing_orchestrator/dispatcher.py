@@ -33,7 +33,8 @@ class PairingDispatcher:
         snapshot_manager: Optional[Any],
         worker_id: str,
         lease_seconds: int,
-        is_running: Callable[[], bool],
+        is_alive: Callable[[], bool],
+        is_paused: Callable[[], bool],
         start_to_area: Dict[str, str],
         end_to_area: Dict[str, str],
         empty_starts_by_area: Dict[str, List[str]],
@@ -51,7 +52,8 @@ class PairingDispatcher:
         self._snapshot_manager = snapshot_manager
         self._worker_id = worker_id
         self._lease_seconds = lease_seconds
-        self._is_running = is_running
+        self._is_alive = is_alive
+        self._is_paused = is_paused
         self._sleep_seconds = sleep_seconds
         self._start_to_area = start_to_area
         self._end_to_area = end_to_area
@@ -66,7 +68,8 @@ class PairingDispatcher:
             snapshot_manager=snapshot_manager,
             worker_id=worker_id,
             lease_seconds=lease_seconds,
-            is_running=is_running,
+            is_alive=is_alive,
+            is_paused=is_paused,
             start_to_area=start_to_area,
             end_to_area=end_to_area,
             pending_empty=pending_empty,
@@ -74,6 +77,11 @@ class PairingDispatcher:
             get_disabled_areas=get_disabled_areas,
             post_ics=self._post_ics,
         )
+
+    def _should_work(self) -> bool:
+        """Còn sống và không đang pause — mới được publish/POST ICS."""
+        return self._is_alive() and not self._is_paused()
+
 
     def _should_post_pair(self, start_point: str, end_point: str) -> bool:
         """Kiểm tra pair có bị chặn bởi disabled_nodes hoặc disabled_areas."""
@@ -113,7 +121,10 @@ class PairingDispatcher:
         return await asyncio.to_thread(self._ics.post, payload)
 
     async def run_loop(self) -> None:
-        while self._is_running():
+        while self._is_alive():
+            if self._is_paused():
+                await asyncio.sleep(self._sleep_seconds)
+                continue
             try:
                 self._state.process_starts()
                 self._state.process_ends()
@@ -326,7 +337,7 @@ class PairingDispatcher:
 
                 # Giống PairManager: các normal còn lại -> gửi single local
                 for start_point, end_point in pairs[normal_idx:]:
-                    if not self._is_running():
+                    if not self._should_work():
                         break
                     
                     # Kiểm tra pair có bị disable không

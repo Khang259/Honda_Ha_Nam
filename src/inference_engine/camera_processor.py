@@ -1,5 +1,7 @@
 # File: camera_processor.py
 import cv2
+import hashlib
+import os
 import threading
 import time
 import queue
@@ -7,6 +9,11 @@ from inference_engine.detection import has_object_in_roi
 from inference_engine.state_manager import StateManager
 from inference_engine.gpu_video_decoder import GPUVideoDecoder
 from shared.setup_log import setup_logger
+
+try:
+    from config import CAMERA_START_JITTER_MAX_SECONDS
+except Exception:
+    CAMERA_START_JITTER_MAX_SECONDS = 2.5
 
 logger = setup_logger("camera_processor", "logs/camera_processor/log")
 
@@ -23,6 +30,7 @@ class CameraProcessor(threading.Thread):
         snapshot_manager=None,
         enabled_ref=None,
         camera_index=0,
+        mongo_camera_id=None,
         latest_frames_ref=None,
         api_client=None,
     ):
@@ -34,8 +42,9 @@ class CameraProcessor(threading.Thread):
         self.result_queue = result_queue
         self.cam_id = cam_id
         self.snapshot_manager = snapshot_manager
-        self.enabled_ref = enabled_ref if enabled_ref is not None else []
+        self.enabled_ref = enabled_ref if enabled_ref is not None else {}
         self.camera_index = camera_index
+        self.mongo_camera_id = mongo_camera_id
         self.latest_frames_ref = latest_frames_ref if latest_frames_ref is not None else {}
         self.api_client = api_client  # API client cho worker mode
         self.running = True
@@ -45,6 +54,11 @@ class CameraProcessor(threading.Thread):
 
     def _numeric_camera_id(self):
         """Parse cameraId từ cam_id dạng cam_{idx}_{cameraId}."""
+        if self.mongo_camera_id is not None:
+            try:
+                return int(self.mongo_camera_id)
+            except (ValueError, TypeError):
+                pass
         try:
             parts = str(self.cam_id).split("_")
             if len(parts) >= 3:
@@ -53,11 +67,30 @@ class CameraProcessor(threading.Thread):
             pass
         return None
 
-    #Hàm kiểm tra trạng thái camera(threading) đã được bật hay chưa?
     def _is_enabled(self):
-        if self.camera_index < len(self.enabled_ref):
-            return self.enabled_ref[self.camera_index]
+        """Hỗ trợ enabled_ref là dict[cameraId] hoặc list[index] (legacy)."""
+        if isinstance(self.enabled_ref, dict):
+            cid = self._numeric_camera_id()
+            if cid is None:
+                return True
+            return bool(self.enabled_ref.get(cid, False))
+        if isinstance(self.enabled_ref, list):
+            if self.camera_index < len(self.enabled_ref):
+                return self.enabled_ref[self.camera_index]
         return True
+
+    def _connect_jitter_seconds(self) -> float:
+        """
+        Jitter 0..CAMERA_START_JITTER_MAX_SECONDS theo worker + camera
+        để tránh bật hàng loạt ffmpeg cùng một lúc khi RUN.
+        """
+        worker = os.getenv("WORKER_ID", "w0")
+        cam = self._numeric_camera_id()
+        if cam is None:
+            cam = int(self.camera_index or 0)
+        digest = hashlib.md5(f"{worker}:{cam}".encode("utf-8")).hexdigest()
+        frac = int(digest[:8], 16) / 0xFFFFFFFF
+        return float(CAMERA_START_JITTER_MAX_SECONDS) * frac
 
     def run(self):
         cap = None
@@ -74,6 +107,11 @@ class CameraProcessor(threading.Thread):
                 continue
 
             if cap is None or not cap.isOpened():
+                delay = self._connect_jitter_seconds()
+                if delay > 0:
+                    time.sleep(delay)
+                if not self.running or not self._is_enabled():
+                    continue
                 cap = GPUVideoDecoder(self.rtsp)
                 if not cap.isOpened():
                     logger.error(f"Cannot open RTSP: {self.rtsp}")

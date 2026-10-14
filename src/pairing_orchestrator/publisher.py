@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Callable, Dict
+from typing import Callable, Dict, Optional
 
 from inference_engine.state_manager import StateManager
 from pairing_orchestrator.persistence.mongo_start_event_client import MongoStartEventClient
@@ -16,11 +16,18 @@ async def run_publisher_loop(
     state: StateManager,
     mongo_client: MongoStartEventClient,
     worker_id: str,
-    is_running: Callable[[], bool],
+    is_alive: Callable[[], bool],
     start_to_area: Dict[str, str],
     sleep_seconds: float = 1.0,
+    is_paused: Optional[Callable[[], bool]] = None,
 ) -> None:
-    while is_running():
+    """
+    Loop sống theo is_alive. Khi is_paused: sleep + continue (không thoát).
+    """
+    while is_alive():
+        if is_paused is not None and is_paused():
+            await asyncio.sleep(sleep_seconds)
+            continue
         try:
             state.process_starts()
             for node_id in state.snapshot_ready_starts():

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from api.settings import settings
 from pairing_orchestrator.runtime_service import runtime_service
 
 
@@ -15,7 +14,6 @@ async def get_runtime_status():
 
 
 @router.post("/reload")
-async def reload_runtime(area: str | None = None):
-    target_area = (area or settings.AREA_NAME).upper()
-    return await runtime_service.reload(target_area)
-
+async def reload_runtime():
+    """Restart runtime (stop + start). Không phụ thuộc AREA_NAME."""
+    return await runtime_service.reload()

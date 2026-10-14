@@ -26,6 +26,16 @@ class InferenceEnginePool:
             return None
         return self.engines[int(camera_index) % len(self.engines)]
 
+    def unregister_camera(self, cam_id):
+        """Best-effort: gỡ cam_id khỏi mọi engine trong pool."""
+        for e in self.engines:
+            unregister = getattr(e, "unregister_camera", None)
+            if callable(unregister):
+                try:
+                    unregister(cam_id)
+                except Exception:
+                    pass
+
     def pause(self) -> None:
         for e in self.engines:
             try:

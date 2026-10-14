@@ -23,7 +23,8 @@ class DistributedPairingDispatcher:
         snapshot_manager: Optional[Any],
         worker_id: str,
         lease_seconds: int,
-        is_running: Callable[[], bool],
+        is_alive: Callable[[], bool],
+        is_paused: Callable[[], bool],
         start_to_area: Dict[str, str],
         end_to_area: Dict[str, str],
         pending_empty: List[Tuple[str, float]],
@@ -38,13 +39,17 @@ class DistributedPairingDispatcher:
         self._snapshot_manager = snapshot_manager
         self._worker_id = worker_id
         self._lease_seconds = lease_seconds
-        self._is_running = is_running
+        self._is_alive = is_alive
+        self._is_paused = is_paused
         self._start_to_area = start_to_area
         self._end_to_area = end_to_area
         self._pending_empty = pending_empty
         self._get_disabled_nodes = get_disabled_nodes
         self._get_disabled_areas = get_disabled_areas
         self._post_ics = post_ics
+
+    def _should_work(self) -> bool:
+        return self._is_alive() and not self._is_paused()
 
     def _should_post_pair(self, start_point: str, end_point: str) -> bool:
         disabled_nodes = self._get_disabled_nodes()
@@ -134,7 +139,7 @@ class DistributedPairingDispatcher:
             async with self._pool.pool_lock:
                 pool_keys = [k for k in candidates if k in self._pool.local_start_pool]
             for start_point in pool_keys:
-                if not self._is_running():
+                if not self._should_work():
                     return
                 if self._is_node_blocked(start_point):
                     continue
@@ -168,7 +173,7 @@ class DistributedPairingDispatcher:
             return
 
         for end_point in self._state.snapshot_ready_ends():
-            if not self._is_running():
+            if not self._should_work():
                 return
             if self._is_node_blocked(end_point):
                 continue
@@ -241,7 +246,7 @@ class DistributedPairingDispatcher:
 
     async def _dispatch_empty_flush(self, now: float) -> None:
         while self._pending_empty:
-            if not self._is_running():
+            if not self._should_work():
                 return
 
             start_empty, deadline = self._pending_empty[0]

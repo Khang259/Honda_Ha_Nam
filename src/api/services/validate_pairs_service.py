@@ -5,7 +5,7 @@ Service để load validate pairs từ MongoDB và convert sang format runtime.
 from __future__ import annotations
 from typing import Optional, Set, Tuple
 
-from persistence.mongo.mongo_pair_client import MongoPairClient
+from pairing_orchestrator.persistence.mongo_pair_client import MongoPairClient
 from shared.setup_log import setup_logger
 
 logger = setup_logger("validate_pairs_service", "logs/validate_pairs_service/log")

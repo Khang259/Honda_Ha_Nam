@@ -110,6 +110,30 @@ class StateManager:
             pairs = self.order_mapping.setdefault(order_id, [])
             pairs.append((start_point, end_point, empty_car))
 
+    def reset_ready_state_for_run(self) -> None:
+        """
+        Sau cluster RUN: xóa ready list và reset timer điểm.
+        Tránh process_starts/ends coi existed_time (tính cả lúc STOP) > 30s
+        rồi bắn lệnh ICS từ state cũ.
+
+        Giữ nguyên flag / pair_mapping / order_mapping (lệnh đã gửi, chờ webhook).
+        """
+        with self._lock:
+            now = time.time()
+            n_start = len(self.ready_start_list)
+            n_end = len(self.ready_end_list)
+            self.ready_start_list.clear()
+            self.ready_end_list.clear()
+            for _node_id, data in self.points.items():
+                data["time"] = now
+            logger.info(
+                "Reset ready state for RUN: cleared ready_start=%s ready_end=%s, "
+                "timers reset for %s points",
+                n_start,
+                n_end,
+                len(self.points),
+            )
+
     def snapshot_ready_ends(self):
         """Copy ready_end_list (thread-safe) cho pairing loop."""
         with self._lock:

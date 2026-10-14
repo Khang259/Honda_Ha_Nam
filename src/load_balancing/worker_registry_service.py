@@ -12,144 +12,137 @@ logger = setup_logger("worker_registry_service", "logs/worker_registry_service/l
 
 class WorkerRegistryService:
     """Service quản lý worker registration và heartbeat"""
-    
+
     def __init__(self, collection_name: str = "register_worker"):
         self._collection_name = collection_name
-    
+
+    @staticmethod
+    def _vietnam_display_now() -> str:
+        """Chỉ để hiển thị; authoritative clock là last_time = $$NOW trên Mongo."""
+        now = datetime.utcnow() + timedelta(hours=7)
+        return now.strftime("%Y-%m-%d %H:%M:%S")
+
     async def register(self, worker_id: str, worker_ip: str) -> bool:
         """
         Đăng ký worker mới hoặc update nếu đã tồn tại.
-        
-        Args:
-            worker_id: ID unique của worker
-            worker_ip: IP address của worker
-            
-        Returns:
-            bool: True nếu thành công
+        last_time dùng $$NOW (giờ server Mongo) — cần MongoDB >= 4.2.
         """
         try:
             col = get_collection(self._collection_name)
-            now = datetime.utcnow()
-            now_vietnam = now + timedelta(hours=7)
-            formatted_time =  now_vietnam.strftime("%Y-%m-%d %H:%M:%S")
-            
+            formatted_time = self._vietnam_display_now()
+
             result = await col.update_one(
                 {"worker_id": worker_id},
-                {
-                    "$set": {
-                        "worker_ip": worker_ip,
-                        "last_time": now,
-                        "last_time_vietnam": formatted_time,
-                    },
-                    "$setOnInsert": {
-                        "start_time": now,
-                        "capacity": {"current_cameras": 0}
+                [
+                    {
+                        "$set": {
+                            "worker_id": {"$ifNull": ["$worker_id", worker_id]},
+                            "worker_ip": worker_ip,
+                            "last_time": "$$NOW",
+                            "last_time_vietnam": formatted_time,
+                            "start_time": {"$ifNull": ["$start_time", "$$NOW"]},
+                            "capacity": {
+                                "$ifNull": ["$capacity", {"current_cameras": 0}]
+                            },
+                        }
                     }
-                },
-                upsert=True
+                ],
+                upsert=True,
             )
-            if result.upserted_id or result.modified_count > 0:
+            if result.upserted_id is not None or result.modified_count > 0 or result.matched_count > 0:
                 logger.info(f"Worker registered: {worker_id} @ {worker_ip}")
                 return True
-            
+
             return False
-            
+
         except Exception as e:
             logger.error(f"Failed to register worker {worker_id}: {e}")
             return False
-    
+
     async def update_heartbeat(
-        self, 
-        worker_id: str, 
-        current_cameras: int
+        self,
+        worker_id: str,
+        current_cameras: int,
     ) -> bool:
-        """
-        Cập nhật heartbeat và capacity của worker.
-        
-        Args:
-            worker_id: ID của worker
-            current_cameras: Số lượng cameras hiện tại worker đang xử lý
-            
-        Returns:
-            bool: True nếu thành công
-        """
+        """Cập nhật heartbeat bằng $$NOW (giờ server Mongo)."""
         try:
             col = get_collection(self._collection_name)
-            now = datetime.utcnow()
-            now_vietnam = now + timedelta(hours=7)
-            formatted_time =  now_vietnam.strftime("%Y-%m-%d %H:%M:%S")
-            
+            formatted_time = self._vietnam_display_now()
+
             result = await col.update_one(
                 {"worker_id": worker_id},
-                {
-                    "$set": {
-                        "last_time": now,
-                        "last_time_vietnam": formatted_time,
-                        "capacity.current_cameras": current_cameras
+                [
+                    {
+                        "$set": {
+                            "last_time": "$$NOW",
+                            "last_time_vietnam": formatted_time,
+                            "capacity.current_cameras": int(current_cameras),
+                        }
                     }
-                }
+                ],
             )
-            
-            if result.modified_count > 0:
-                logger.debug(f"Heartbeat updated for worker {worker_id}, cameras: {current_cameras}")
+
+            if result.modified_count > 0 or result.matched_count > 0:
+                logger.debug(
+                    f"Heartbeat updated for worker {worker_id}, cameras: {current_cameras}"
+                )
                 return True
-            else:
-                logger.warning(f"Worker {worker_id} not found in registry")
-                return False
-                
+
+            logger.warning(f"Worker {worker_id} not found in registry")
+            return False
+
         except Exception as e:
             logger.error(f"Failed to update heartbeat for {worker_id}: {e}")
             return False
-    
-    async def get_active_workers(self, timeout_seconds: int = 30) -> List[Dict[str, Any]]:
+
+    async def get_active_workers(
+        self, timeout_seconds: int = 30
+    ) -> Optional[List[Dict[str, Any]]]:
         """
-        Lấy danh sách workers active (có heartbeat trong timeout).
-        
-        Args:
-            timeout_seconds: Thời gian timeout để xác định worker còn active
-            
+        Workers active theo cutoff = $$NOW - timeout (giờ server).
+
         Returns:
-            List[Dict]: Danh sách workers active
+            List[Dict] nếu OK; None nếu lỗi Mongo (unknown).
         """
         try:
             col = get_collection(self._collection_name)
-            cutoff_time = datetime.utcnow() - timedelta(seconds=timeout_seconds)
-            
+            timeout_ms = int(timeout_seconds) * 1000
+
             cursor = col.find(
-                {"last_time": {"$gte": cutoff_time}},
-                {"_id": 0}
+                {
+                    "$expr": {
+                        "$gte": [
+                            "$last_time",
+                            {"$subtract": ["$$NOW", timeout_ms]},
+                        ]
+                    }
+                },
+                {"_id": 0},
             ).sort("worker_id", 1)
-            
+
             workers = await cursor.to_list(length=None)
-            
-            logger.debug(f"Found {len(workers)} active workers (timeout={timeout_seconds}s)")
+
+            logger.debug(
+                f"Found {len(workers)} active workers (timeout={timeout_seconds}s, server $$NOW)"
+            )
             return workers
-            
+
         except Exception as e:
-            logger.error(f"Failed to get active workers: {e}")
-            return []
-    
+            logger.error(f"Failed to get active workers (unknown): {e}")
+            return None
+
     async def remove_worker(self, worker_id: str) -> bool:
-        """
-        Xóa worker khỏi registry.
-        
-        Args:
-            worker_id: ID của worker cần xóa
-            
-        Returns:
-            bool: True nếu xóa thành công
-        """
         try:
             col = get_collection(self._collection_name)
             result = await col.delete_one({"worker_id": worker_id})
-            
+
             if result.deleted_count > 0:
                 logger.info(f"Worker {worker_id} removed from registry")
                 return True
-            else:
-                logger.warning(f"Worker {worker_id} not found for removal")
-                return False
-                
+
+            logger.warning(f"Worker {worker_id} not found for removal")
+            return False
+
         except Exception as e:
             logger.error(f"Failed to remove worker {worker_id}: {e}")
             return False

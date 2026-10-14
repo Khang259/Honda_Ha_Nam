@@ -20,33 +20,22 @@ router = APIRouter()
 
 def _get_nodes_by_zone(zone: str) -> Set[str]:
     """Lấy tất cả node_ids thuộc zone."""
-    nodes = set()
     if not api_state.camera_manager:
-        return nodes
-    
-    for i, cam_zone in enumerate(api_state.camera_manager.camera_zones):
-        if cam_zone == zone:
-            # Lấy nodes từ camera index i
-            for thread in api_state.camera_manager.threads:
-                if hasattr(thread, 'camera_index') and thread.camera_index == i:
-                    for roi in thread.rois:
-                        nodes.add(roi["node_id"])
-    return nodes
+        return set()
+    getter = getattr(api_state.camera_manager, "get_nodes_by_zone", None)
+    if callable(getter):
+        return getter(zone)
+    return set()
 
 
 def _get_nodes_by_camera(camera_id: int) -> Set[str]:
     """Lấy tất cả node_ids thuộc camera."""
-    nodes = set()
     if not api_state.camera_manager:
-        return nodes
-    
-    index = camera_control_service.find_camera_index(api_state.camera_manager, camera_id)
-    if index is not None:
-        for thread in api_state.camera_manager.threads:
-            if hasattr(thread, 'camera_index') and thread.camera_index == index:
-                for roi in thread.rois:
-                    nodes.add(roi["node_id"])
-    return nodes
+        return set()
+    getter = getattr(api_state.camera_manager, "get_nodes_by_camera_id", None)
+    if callable(getter):
+        return getter(int(camera_id))
+    return set()
 
 @router.post("/start-all")
 async def start_all_cameras() -> Dict[str, Any]:

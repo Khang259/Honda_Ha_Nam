@@ -22,7 +22,18 @@ logger = setup_logger("mongo_start_event_client", "logs/mongo_start_event_client
 
 
 class MongoStartEventClient:
-    def __init__(self, collection_name: str = "start_events_test", node_collection_name: str = "node_id"):
+    def __init__(
+        self,
+        collection_name: Optional[str] = None,
+        node_collection_name: str = "node_id",
+    ):
+        if collection_name is None:
+            try:
+                from api.settings import settings
+
+                collection_name = settings.START_EVENTS_COLLECTION
+            except Exception:
+                collection_name = "start_events_test"
         self._collection_name = collection_name
         self._node_collection_name = node_collection_name
 
@@ -54,6 +65,27 @@ class MongoStartEventClient:
         except Exception:
             return None
 
+    async def _get_camera_ownership(
+        self, camera_id: int
+    ) -> Tuple[Optional[str], Optional[int]]:
+        """Trả (current_worker, fencing_token) từ node_id."""
+        try:
+            col = get_collection(self._node_collection_name)
+            doc = await col.find_one(
+                {"cameraId": int(camera_id)},
+                {"current_worker": 1, "fencing_token": 1, "_id": 0},
+            )
+            if not doc:
+                return None, None
+            owner = doc.get("current_worker")
+            token = doc.get("fencing_token")
+            return (
+                str(owner) if owner is not None else None,
+                int(token) if token is not None else None,
+            )
+        except Exception:
+            return None, None
+
     async def upsert_ready(
         self,
         *,
@@ -66,6 +98,7 @@ class MongoStartEventClient:
         Publish/refresh a ready start-event.
         - Do not overwrite a sent event (flag=true).
         - Keep flag=false for retry semantics.
+        - Từ chối nếu camera đang thuộc worker khác (fencing / ownership).
         """
         try:
             col = get_collection(self._collection_name)
@@ -73,11 +106,20 @@ class MongoStartEventClient:
             if existing is not None and existing.get("flag") is True:
                 return True
 
-            now = datetime.utcnow()
-
             fencing_token: Optional[int] = None
             if camera_id is not None:
-                fencing_token = await self._get_camera_fencing_token(int(camera_id))
+                owner, fencing_token = await self._get_camera_ownership(int(camera_id))
+                if owner is not None and str(owner) != str(assign_worker):
+                    logger.warning(
+                        "Reject upsert_ready %s: cameraId=%s owned by %s, not %s",
+                        node_id,
+                        camera_id,
+                        owner,
+                        assign_worker,
+                    )
+                    return False
+
+            now = datetime.utcnow()
 
             filt: Dict[str, Any] = {"node_id": node_id, "flag": {"$ne": True}}
             update: Dict[str, Any] = {
@@ -113,38 +155,68 @@ class MongoStartEventClient:
         lease_seconds: int = 20,
     ) -> Tuple[bool, Optional[Dict[str, Any]]]:
         """
-        Atomic claim a ready event via lease.
-        Claim succeeds only when:
-        - flag == false
-        - status == ready
-        - claim_until is missing or <= now
+        Atomic claim a ready event via lease (claim_until theo $$NOW server).
+        Sau claim: kiểm ownership + fencing_token; lệch → unlock và từ chối.
         """
         try:
             col = get_collection(self._collection_name)
-            now = datetime.utcnow()
-            claim_until = now + timedelta(seconds=int(lease_seconds))
+            lease_ms = int(lease_seconds) * 1000
 
-            filt = {
+            filt: Dict[str, Any] = {
                 "node_id": node_id,
                 "flag": False,
                 "status": "ready",
-                "$or": [{"claim_until": {"$exists": False}}, {"claim_until": {"$lte": now}}],
+                "$or": [
+                    {"claim_until": {"$exists": False}},
+                    {"$expr": {"$lte": ["$claim_until", "$$NOW"]}},
+                ],
             }
-            update = {
-                "$set": {
-                    "status": "claimed",
-                    "claim_owner": worker_id,
-                    "claim_until": claim_until,
-                    "last_worker": worker_id,
-                    "updated_at": now,
+            update = [
+                {
+                    "$set": {
+                        "status": "claimed",
+                        "claim_owner": worker_id,
+                        "claim_until": {"$add": ["$$NOW", lease_ms]},
+                        "last_worker": worker_id,
+                        "updated_at": "$$NOW",
+                    }
                 }
-            }
+            ]
 
             doc = await col.find_one_and_update(
                 filt, update, return_document=ReturnDocument.AFTER
             )
             if not doc:
                 return False, None
+
+            # Fencing: worker cũ / token lệch không được giữ claim
+            camera_id = doc.get("cameraId")
+            event_token = doc.get("fencing_token")
+            if camera_id is not None:
+                owner, db_token = await self._get_camera_ownership(int(camera_id))
+                if owner is not None and str(owner) != str(worker_id):
+                    logger.warning(
+                        "Reject claim_ready %s: cameraId=%s owned by %s, not %s",
+                        node_id,
+                        camera_id,
+                        owner,
+                        worker_id,
+                    )
+                    await self.unlock_to_ready(node_id=node_id, worker_id=worker_id)
+                    return False, None
+                if (
+                    event_token is not None
+                    and db_token is not None
+                    and int(event_token) != int(db_token)
+                ):
+                    logger.warning(
+                        "Reject claim_ready %s: fencing_token event=%s db=%s",
+                        node_id,
+                        event_token,
+                        db_token,
+                    )
+                    await self.unlock_to_ready(node_id=node_id, worker_id=worker_id)
+                    return False, None
 
             doc.pop("_id", None)
             return True, doc

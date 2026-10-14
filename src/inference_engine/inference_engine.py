@@ -80,6 +80,10 @@ class InferenceEngine(threading.Thread):
             result_queue: Queue để trả kết quả về camera thread
         """
         self.result_queues[cam_id] = result_queue
+
+    def unregister_camera(self, cam_id):
+        """Gỡ result queue khi hot-remove camera."""
+        self.result_queues.pop(cam_id, None)
     
     def put_frame_with_drop(self, frame, cam_id):
         """

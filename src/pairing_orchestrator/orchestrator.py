@@ -6,6 +6,7 @@ atomic claim + POST ICS. Empty-car / double (15s) giống PairManager.
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from inference_engine.state_manager import StateManager
@@ -18,8 +19,12 @@ from pairing_orchestrator.ics_client import IcsClient
 from pairing_orchestrator.mongo_pool import MongoStartPool
 from pairing_orchestrator.publisher import run_publisher_loop
 from pairing_orchestrator.validate_pairs_graph import build_end_to_starts
+from api.settings import settings
 
 logger = setup_logger("start_event_pairing", "logs/start_event_pairing/log")
+
+# Chờ camera/stream ổn định sau RUN trước khi publish/dispatch ICS
+RESUME_STABILIZE_SECONDS = 3.0
 
 
 class StartEventPairingOrchestrator:
@@ -31,21 +36,32 @@ class StartEventPairingOrchestrator:
         ics_url: str,
         snapshot_manager: Optional[Any] = None,
         lease_seconds: int = 20,
+        resume_stabilize_seconds: float = RESUME_STABILIZE_SECONDS,
+        start_events_collection: Optional[str] = None,
     ) -> None:
         self._worker_id = worker_id
         self._state = state_manager
         self._validate_pairs = validate_pairs
         self._snapshot_manager = snapshot_manager
         self._lease_seconds = lease_seconds
-        self._mongo = MongoStartEventClient()
+        self._resume_stabilize_seconds = float(resume_stabilize_seconds)
+        self._start_events_collection = (
+            start_events_collection or settings.START_EVENTS_COLLECTION
+        )
+        self._mongo = MongoStartEventClient(
+            collection_name=self._start_events_collection
+        )
         self._end_to_starts = build_end_to_starts(validate_pairs)
-        self._running = False
+        # _alive: vòng đời task (chỉ False khi stop process)
+        # _paused: tạm dừng nghiệp vụ (STOP cluster); task vẫn sống
+        self._alive = False
         self._paused = False
+        # time.time() — trước mốc này coi như đang stabilize (không publish/dispatch)
+        self._resume_ready_at: float = 0.0
         self._disabled_nodes: Set[str] = set()
         self._disabled_areas: Set[str] = set()
         self._tasks: List[asyncio.Task] = []
         self._pending_empty: List[Tuple[str, float]] = []
-        self._start_events_collection = "start_events_test"
 
         self._ics = IcsClient(ics_url)
         self._pool = MongoStartPool(self._start_events_collection)
@@ -54,16 +70,29 @@ class StartEventPairingOrchestrator:
         self._empty_starts_by_area: Dict[str, List[str]] = {}
 
     def pause(self) -> None:
-        """Pause pairing (stop POST ICS)."""
+        """Tạm dừng pairing (không publish/POST ICS). Task vẫn sống."""
         self._paused = True
         logger.info("PairingOrchestrator paused")
 
     def resume(self) -> None:
-        """Resume pairing."""
+        """
+        Tiếp tục pairing. Không recreate task.
+        Reset ready/timer state và chờ stabilize để tránh lệnh ICS từ state cũ.
+        Không clear _disabled_nodes/_disabled_areas — zone/node khóa tay giữ nguyên
+        đến khi gọi enable_nodes/enable_areas (vd. /{zone}/start-all).
+        """
+        self._state.reset_ready_state_for_run()
+        self._pending_empty.clear()
+        self._resume_ready_at = time.time() + self._resume_stabilize_seconds
         self._paused = False
-        self._disabled_nodes.clear()
-        self._disabled_areas.clear()
-        logger.info("PairingOrchestrator resumed")
+        logger.info(
+            "PairingOrchestrator resumed; stabilize for %.1fs until %.3f "
+            "(disabled_nodes=%s disabled_areas=%s kept)",
+            self._resume_stabilize_seconds,
+            self._resume_ready_at,
+            len(self._disabled_nodes),
+            len(self._disabled_areas),
+        )
 
     def disable_nodes(self, node_ids: Set[str]) -> None:
         """Disable pairing cho specific nodes (zone/camera)."""
@@ -85,11 +114,17 @@ class StartEventPairingOrchestrator:
         self._disabled_areas.difference_update(area_names)
         logger.info(f"Enabled {len(area_names)} areas for pairing")
 
-    def _is_running(self) -> bool:
-        return self._running and not self._paused
+    def _is_alive(self) -> bool:
+        return self._alive
+
+    def _is_paused(self) -> bool:
+        """True khi STOP hoặc đang trong cửa sổ stabilize sau RUN."""
+        if self._paused:
+            return True
+        return time.time() < self._resume_ready_at
 
     async def _consumer_loop(self) -> None:
-        await self._pool.consumer_loop(self._is_running)
+        await self._pool.consumer_loop(self._is_alive, self._is_paused)
 
     async def _dispatcher_loop(self) -> None:
         assert self._dispatcher is not None
@@ -132,22 +167,25 @@ class StartEventPairingOrchestrator:
             snapshot_manager=self._snapshot_manager,
             worker_id=self._worker_id,
             lease_seconds=self._lease_seconds,
-            is_running=self._is_running,
+            is_alive=self._is_alive,
+            is_paused=self._is_paused,
             start_to_area=self._start_to_area,
             end_to_area=self._end_to_area,
             empty_starts_by_area=self._empty_starts_by_area,
             get_disabled_nodes=lambda: self._disabled_nodes,
             get_disabled_areas=lambda: self._disabled_areas,
         )
-        self._running = True
+        self._alive = True
+        self._paused = False
         self._tasks = [
             asyncio.create_task(
                 run_publisher_loop(
                     self._state,
                     self._mongo,
                     self._worker_id,
-                    self._is_running,
+                    self._is_alive,
                     self._start_to_area,
+                    is_paused=self._is_paused,
                 ),
                 name="start_event_publisher"
             ),
@@ -157,7 +195,7 @@ class StartEventPairingOrchestrator:
         logger.info("StartEventPairingOrchestrator started worker=%s", self._worker_id)
 
     async def stop(self) -> None:
-        self._running = False
+        self._alive = False
         for t in self._tasks:
             t.cancel()
         await asyncio.gather(*self._tasks, return_exceptions=True)

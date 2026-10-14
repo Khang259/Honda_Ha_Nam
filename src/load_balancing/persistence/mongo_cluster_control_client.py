@@ -4,7 +4,8 @@ Manages engine_control_status and engine_control_acks collections.
 """
 
 from typing import Any, Dict, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
+from pymongo import ReturnDocument, ASCENDING
 from persistence.database import get_collection
 from shared.setup_log import setup_logger
 
@@ -13,19 +14,36 @@ logger = setup_logger("mongo_cluster_control_client", "logs/mongo_cluster_contro
 
 class MongoClusterControlClient:
     """Client for cluster control coordination via MongoDB."""
-    
+
     def __init__(
-        self, 
+        self,
         status_collection: str = "engine_control_status",
-        acks_collection: str = "engine_control_acks"
+        acks_collection: str = "engine_control_acks",
     ):
         self._status_collection = status_collection
         self._acks_collection = acks_collection
-    
+        self._indexes_ensured = False
+
+    async def ensure_indexes(self) -> None:
+        """Unique (worker_id, token) trên acks — idempotent."""
+        if self._indexes_ensured:
+            return
+        try:
+            col = get_collection(self._acks_collection)
+            await col.create_index(
+                [("worker_id", ASCENDING), ("token", ASCENDING)],
+                unique=True,
+                name="uniq_worker_token",
+            )
+            self._indexes_ensured = True
+            logger.info("Ensured unique index uniq_worker_token on %s", self._acks_collection)
+        except Exception as e:
+            logger.error("Failed to ensure cluster control indexes: %s", e)
+
     async def update_desired_state(
-        self, 
-        state: str, 
-        updated_by_worker: str
+        self,
+        state: str,
+        updated_by_worker: str,
     ) -> Dict[str, Any]:
         """
         Atomically update desired state and increment token.
@@ -38,11 +56,11 @@ class MongoClusterControlClient:
             dict with keys: desired_state, token, timestamp, updated_by_worker
         """
         col = get_collection(self._status_collection)
-        
-        now = datetime.utcnow()
-        now_vietnam = now + timedelta(hours=7)
-        timestamp = now_vietnam.strftime("%Y-%m-%d %H:%M:%S")
-        
+
+        # Lưu UTC; format giờ VN chỉ ở lớp hiển thị (API/UI), không cộng tay +7 ở đây.
+        now = datetime.now(timezone.utc)
+        timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
+
         try:
             result = await col.find_one_and_update(
                 {"_id": "inference_status"},
@@ -51,12 +69,12 @@ class MongoClusterControlClient:
                         "desired_state": state,
                         "updated_by_worker": updated_by_worker,
                         "timestamp": timestamp,
-                        "timestamp_utc": now
+                        "timestamp_utc": now,
                     },
-                    "$inc": {"token": 1}
+                    "$inc": {"token": 1},
                 },
                 upsert=True,
-                return_document=True  # Return document after update
+                return_document=ReturnDocument.AFTER,
             )
             
             if result:
@@ -135,11 +153,11 @@ class MongoClusterControlClient:
         """
         col = get_collection(self._acks_collection)
         
-        now = datetime.utcnow()
-        now_vietnam = now + timedelta(hours=7)
-        applied_at = now_vietnam.strftime("%Y-%m-%d %H:%M:%S")
-        
+        now = datetime.now(timezone.utc)
+        applied_at = now.strftime("%Y-%m-%d %H:%M:%S")
+
         try:
+            await self.ensure_indexes()
             result = await col.update_one(
                 {
                     "worker_id": worker_id,
@@ -149,7 +167,7 @@ class MongoClusterControlClient:
                     "$set": {
                         "applied_state": applied_state,
                         "applied_at": applied_at,
-                        "applied_at_utc": now
+                        "applied_at_utc": now,
                     }
                 },
                 upsert=True

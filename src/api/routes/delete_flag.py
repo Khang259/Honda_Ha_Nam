@@ -5,7 +5,7 @@ from datetime import datetime
 import asyncio
 import time
 import api.state as api_state
-from persistence.mongo.mongo_start_event_client import MongoStartEventClient
+from pairing_orchestrator.persistence.mongo_start_event_client import MongoStartEventClient
 from api.settings import settings
 
 router = APIRouter()

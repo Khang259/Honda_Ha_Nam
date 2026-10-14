@@ -3,7 +3,7 @@ Camera Assignment Service - Quản lý phân bổ cameras cho workers với fenc
 """
 
 from typing import List, Dict, Tuple, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 from persistence.database import get_collection
 from shared.setup_log import setup_logger
 
@@ -17,73 +17,140 @@ class CameraAssignmentService:
         self._collection_name = collection_name
 
     @staticmethod
-    def calculate_assignment_for_camera_ids(
+    def calculate_minimize_move_assignment(
         camera_ids: List[int],
         active_workers: List[str],
+        current_owners: Optional[Dict[int, Optional[str]]] = None,
     ) -> Dict[str, List[int]]:
         """
-        Chia đều theo danh sách cameraId thực tế (đã sort).
+        Chia camera với mục tiêu minimize move:
+        - Giữ camera đang thuộc worker còn active.
+        - Camera mồ côi (None / worker chết) → gán cho máy ít tải nhất.
+        - Nếu lệch tải (máy mới join): lấy bớt từ máy tải cao nhất.
 
-        - Không giả định cameraId liên tục.
-        - Nếu chia dư, workers đầu (theo sort worker_id) nhận thêm 1 camera.
+        Args:
+            camera_ids: danh sách cameraId
+            active_workers: worker còn sống
+            current_owners: cameraId -> current_worker (None nếu chưa gán)
         """
         if not active_workers:
             logger.warning("No active workers to assign cameras")
             return {}
 
-        camera_ids_sorted = sorted([int(x) for x in camera_ids])
-        worker_ids_sorted = sorted(active_workers)
+        camera_ids_sorted = sorted(int(x) for x in camera_ids)
+        worker_ids_sorted = sorted(str(w) for w in active_workers)
+        active_set = set(worker_ids_sorted)
+        owners = current_owners or {}
 
+        assignment: Dict[str, List[int]] = {w: [] for w in worker_ids_sorted}
+        orphans: List[int] = []
+
+        for cam_id in camera_ids_sorted:
+            owner = owners.get(cam_id)
+            if owner is not None:
+                owner = str(owner)
+            if owner in active_set:
+                assignment[owner].append(cam_id)
+            else:
+                orphans.append(cam_id)
+
+        # Phase 2: orphans → least loaded (tie-break worker_id)
+        for cam_id in orphans:
+            target = min(worker_ids_sorted, key=lambda w: (len(assignment[w]), w))
+            assignment[target].append(cam_id)
+
+        # Phase 3: rebalance by stealing from most loaded until max-min <= 1
+        # Deterministic: move highest cameraId from richest worker.
+        guard = 0
+        max_guard = max(len(camera_ids_sorted) * 2, 1)
+        while guard < max_guard:
+            guard += 1
+            richest = max(worker_ids_sorted, key=lambda w: (len(assignment[w]), w))
+            poorest = min(worker_ids_sorted, key=lambda w: (len(assignment[w]), w))
+            if len(assignment[richest]) - len(assignment[poorest]) <= 1:
+                break
+            if not assignment[richest]:
+                break
+            cam_id = max(assignment[richest])
+            assignment[richest].remove(cam_id)
+            assignment[poorest].append(cam_id)
+
+        for w in worker_ids_sorted:
+            assignment[w] = sorted(assignment[w])
+
+        logger.info(
+            "Minimize-move assignment: %s workers, %s cameras, "
+            "orphans_initial=%s, distribution=%s",
+            len(worker_ids_sorted),
+            len(camera_ids_sorted),
+            len(orphans),
+            [len(assignment[w]) for w in worker_ids_sorted],
+        )
+        return assignment
+
+    @staticmethod
+    def calculate_contiguous_assignment_for_camera_ids(
+        camera_ids: List[int],
+        active_workers: List[str],
+    ) -> Dict[str, List[int]]:
+        """
+        Thuật toán cũ: cắt khối liên tiếp (để so sánh / rollback nếu cần).
+        Không dùng cho production rebalance.
+        """
+        if not active_workers:
+            return {}
+
+        camera_ids_sorted = sorted(int(x) for x in camera_ids)
+        worker_ids_sorted = sorted(active_workers)
         num_workers = len(worker_ids_sorted)
         total_cameras = len(camera_ids_sorted)
-
         base_count = total_cameras // num_workers
         remainder = total_cameras % num_workers
 
         assignment: Dict[str, List[int]] = {}
         offset = 0
-
         for i, worker_id in enumerate(worker_ids_sorted):
             count = base_count + (1 if i < remainder else 0)
             assignment[worker_id] = camera_ids_sorted[offset : offset + count]
             offset += count
-
-        logger.info(
-            f"Calculated assignment: {num_workers} workers, "
-            f"{total_cameras} cameras, distribution: {[len(v) for v in assignment.values()]}"
-        )
-
         return assignment
-    
-    def calculate_assignment(
-        self, 
-        total_cameras: int, 
-        active_workers: List[str]
+
+    @staticmethod
+    def calculate_assignment_for_camera_ids(
+        camera_ids: List[int],
+        active_workers: List[str],
+        current_owners: Optional[Dict[int, Optional[str]]] = None,
     ) -> Dict[str, List[int]]:
         """
-        Tính toán phân bổ cameras đều cho các workers.
-        Nếu phép chia có dư, phân phối dư cho các workers đầu tiên.
-        
-        Args:
-            total_cameras: Tổng số cameras cần phân bổ
-            active_workers: Danh sách worker_ids active
-            
-        Returns:
-            Dict[str, List[int]]: Mapping worker_id -> list camera_ids
-            
-        Example:
-            100 cameras, 4 workers -> mỗi worker 25 cameras
-            100 cameras, 3 workers -> 34, 33, 33 cameras
+        Production: minimize-move assignment.
+        current_owners=None → mọi camera coi như mồ côi (chia đều lần đầu).
         """
-        # Backward-compatible: vẫn giữ hành vi cũ theo range(0..N-1)
-        # (không dùng cho production nếu cameraId không liên tục).
+        return CameraAssignmentService.calculate_minimize_move_assignment(
+            camera_ids=camera_ids,
+            active_workers=active_workers,
+            current_owners=current_owners,
+        )
+
+    def calculate_assignment(
+        self,
+        total_cameras: int,
+        active_workers: List[str],
+        current_owners: Optional[Dict[int, Optional[str]]] = None,
+    ) -> Dict[str, List[int]]:
+        """
+        Tính phân bổ cho range(0..N-1). Production nên dùng cameraId thật + owners.
+        """
         return self.calculate_assignment_for_camera_ids(
             camera_ids=list(range(int(total_cameras))),
             active_workers=active_workers,
+            current_owners=current_owners,
         )
 
-    async def get_all_camera_ids(self) -> List[int]:
-        """Lấy danh sách cameraId thực tế từ collection (sorted)."""
+    async def get_all_camera_ids(self) -> Optional[List[int]]:
+        """
+        Lấy danh sách cameraId thực tế từ collection (sorted).
+        None = lỗi Mongo (unknown); [] = thành công nhưng không có camera.
+        """
         try:
             col = get_collection(self._collection_name)
             cursor = col.find({}, {"cameraId": 1, "_id": 0}).sort("cameraId", 1)
@@ -97,8 +164,32 @@ class CameraAssignmentService:
                         continue
             return camera_ids
         except Exception as e:
-            logger.error(f"Failed to fetch camera ids: {e}")
-            return []
+            logger.error(f"Failed to fetch camera ids (unknown): {e}")
+            return None
+
+    async def get_current_ownership(self) -> Optional[Dict[int, Optional[str]]]:
+        """
+        Lấy map cameraId -> current_worker từ DB.
+        None = lỗi Mongo (unknown) — không được coi như mọi camera mồ côi.
+        """
+        try:
+            col = get_collection(self._collection_name)
+            cursor = col.find({}, {"cameraId": 1, "current_worker": 1, "_id": 0})
+            docs = await cursor.to_list(length=None)
+            ownership: Dict[int, Optional[str]] = {}
+            for d in docs:
+                if not isinstance(d, dict) or "cameraId" not in d:
+                    continue
+                try:
+                    cam_id = int(d["cameraId"])
+                except Exception:
+                    continue
+                owner = d.get("current_worker")
+                ownership[cam_id] = str(owner) if owner is not None else None
+            return ownership
+        except Exception as e:
+            logger.error(f"Failed to fetch camera ownership (unknown): {e}")
+            return None
     
     async def claim_camera(
         self, 
@@ -236,46 +327,45 @@ class CameraAssignmentService:
             return []
     
     async def validate_token(
-        self, 
-        camera_id: int, 
-        current_token: int
-    ) -> bool:
+        self,
+        camera_id: int,
+        current_token: int,
+    ) -> Optional[bool]:
         """
-        Validate xem fencing token của worker có khớp với DB không.
-        
-        Args:
-            camera_id: ID của camera
-            current_token: Token hiện tại worker đang giữ
-            
+        Validate fencing token.
+
         Returns:
-            bool: True nếu token khớp (worker vẫn own camera)
+            True: khớp; False: lệch / không tìm thấy camera;
+            None: lỗi Mongo (unknown) — không được coi như mất quyền sở hữu.
         """
         try:
             col = get_collection(self._collection_name)
-            
+
             camera = await col.find_one(
                 {"cameraId": camera_id},
                 {"fencing_token": 1}
             )
-            
+
             if not camera:
                 logger.warning(f"Camera {camera_id} not found for token validation")
                 return False
-            
+
             db_token = camera.get("fencing_token", 0)
-            is_valid = (current_token == db_token)
-            
+            is_valid = current_token == db_token
+
             if not is_valid:
                 logger.warning(
                     f"Token mismatch for camera {camera_id}: "
                     f"current={current_token}, db={db_token}"
                 )
-            
+
             return is_valid
-            
+
         except Exception as e:
-            logger.error(f"Failed to validate token for camera {camera_id}: {e}")
-            return False
+            logger.error(
+                f"Failed to validate token for camera {camera_id} (unknown): {e}"
+            )
+            return None
     
     async def get_all_cameras_count(self) -> int:
         """
