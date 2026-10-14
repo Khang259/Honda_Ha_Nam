@@ -1,3 +1,4 @@
+import re
 import subprocess
 import threading
 import queue
@@ -11,6 +12,53 @@ from config import (
 from shared.setup_log import setup_logger
 
 logger = setup_logger("gpu_video_decoder", "logs/gpu_decoder/log")
+
+# Cache 1 lần: ffmpeg ≥5 dùng -timeout; bản cũ dùng -stimeout (không truyền cả hai).
+_rtsp_timeout_flag = None
+_rtsp_timeout_flag_lock = threading.Lock()
+
+
+def _resolve_rtsp_timeout_flag() -> str:
+    """
+    Chọn option RTSP timeout theo phiên bản ffmpeg (probe một lần lúc start).
+    - ffmpeg major >= 5 → '-timeout'
+    - cũ hơn / không parse được → '-stimeout'
+    """
+    global _rtsp_timeout_flag
+    if _rtsp_timeout_flag is not None:
+        return _rtsp_timeout_flag
+
+    with _rtsp_timeout_flag_lock:
+        if _rtsp_timeout_flag is not None:
+            return _rtsp_timeout_flag
+
+        flag = "-stimeout"
+        try:
+            proc = subprocess.run(
+                ["ffmpeg", "-version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+            first_line = (proc.stdout or proc.stderr or "").splitlines()[:1]
+            text = first_line[0] if first_line else ""
+            match = re.search(r"ffmpeg version\s+(\d+)", text, re.IGNORECASE)
+            if match and int(match.group(1)) >= 5:
+                flag = "-timeout"
+            logger.info(
+                "FFmpeg RTSP timeout option=%s (version line=%r)",
+                flag,
+                text[:80],
+            )
+        except Exception as e:
+            logger.warning(
+                "FFmpeg version probe failed (%s); using %s", e, flag
+            )
+
+        _rtsp_timeout_flag = flag
+        return _rtsp_timeout_flag
+
 
 class GPUVideoDecoder:
     """
@@ -66,8 +114,8 @@ class GPUVideoDecoder:
             return
 
         timeout_us = str(int(FFMPEG_RTSP_TIMEOUT_US))
-        # -rw_timeout: timeout đọc mạng (us). -timeout: một số bản ffmpeg RTSP dùng tương tự.
-        # -stimeout: bản cũ (RTSP); ffmpeg mới có thể bỏ qua option lạ → vẫn chạy.
+        # -rw_timeout luôn dùng; chỉ thêm -timeout HOẶC -stimeout (probe 1 lần).
+        rtsp_flag = _resolve_rtsp_timeout_flag()
         cmd = [
             "ffmpeg",
             "-hwaccel", "cuda",
@@ -75,8 +123,7 @@ class GPUVideoDecoder:
             "-fflags", "nobuffer",
             "-flags", "low_delay",
             "-rw_timeout", timeout_us,
-            "-timeout", timeout_us,
-            "-stimeout", timeout_us,
+            rtsp_flag, timeout_us,
             "-i", self.rtsp_url,
             "-f", "rawvideo",
             "-pix_fmt", "bgr24",

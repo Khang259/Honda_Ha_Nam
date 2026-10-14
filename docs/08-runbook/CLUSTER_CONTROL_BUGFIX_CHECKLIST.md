@@ -85,6 +85,7 @@ Mục tiêu: STOP rồi RUN lại mà pairing/dispatch vẫn sống; lệnh clus
 - [x] Stream chỉ để giảm độ trễ; stream kết thúc không được thoát listener
 - [x] Wrap `_watch_loop` trong vòng retry vô hạn khi `_running`
 - [x] Giám sát task listener; lỗi thì log WARNING + restart loop
+- [x] `get_current_status` → `None` khi lỗi đọc; poll/bootstrap skip (không giả STOP/token=0)
 - [ ] Kiểm: đóng stream / lỗi stream → lệnh mới vẫn được áp dụng (T7) — **cần chạy trên máy thật**
 
 **Kịch bản kiểm (ngắn):**
@@ -93,9 +94,9 @@ Mục tiêu: STOP rồi RUN lại mà pairing/dispatch vẫn sống; lệnh clus
 3. **Đạt:** trong ≤ ~5s (poll) worker vẫn apply lệnh; log có reconnect stream / poll apply; listener không chết im.
 4. **Không đạt:** sau khi stream chết, lệnh mới không bao giờ được apply cho đến khi restart worker.
 
-**File:** `src/load_balancing/cluster_control_listener.py`  
+**File:** `src/load_balancing/cluster_control_listener.py`, `mongo_cluster_control_client.py`  
 **Test:** T7  
-**Sửa code:** 2026-10-14 — poll 5s song song stream; stream chết → retry; supervisor restart
+**Sửa code:** 2026-10-14 — poll 5s + stream retry; status `None` khi lỗi đọc (không STOP giả)
 
 ### #10 — Token reset về nhỏ hơn bị bỏ qua (P1)
 
@@ -188,6 +189,8 @@ Mục tiêu: worker chết → camera mồ côi được máy khác **thật s�
 - [x] Sau rebalance: claim → add thread; release → stop thread
 - [x] Camera mới bật theo `desired_state` hiện tại (RUN/STOP)
 - [x] `RuntimeService`: nối `WorkerManager` rebalance → apply lên `camera_manager`
+- [x] Mỗi chu kỳ đối soát `get_managed_camera_ids()` ↔ `assigned_camera_ids` (add/remove chênh)
+- [x] Fencing invalid: giữ assigned đến rebalance rồi `to_release` → `remove_camera`
 - [ ] Kiểm: kill 1 worker → camera mồ côi chạy lại trên máy khác, không restart (T2) — **cần máy thật**
 
 **Kịch bản kiểm (ngắn):**
@@ -197,7 +200,7 @@ Mục tiêu: worker chết → camera mồ côi được máy khác **thật s�
 
 **File:** `src/inference_engine/camera_manager.py`, `camera_processor.py`, `pairing_orchestrator/runtime_service.py`, `worker_manager.py`  
 **Test:** T2, T6, T8  
-**Sửa code:** 2026-10-14 — hot-add/remove + callback `set_assignment_apply_callback`
+**Sửa code:** 2026-10-14 — hot-add/remove + callback; 2026-10-14 — reconcile managed vs assigned mỗi chu kỳ
 
 ### #15 — Fencing token ghi nhưng không từ chối worker cũ (P1)
 
@@ -282,12 +285,12 @@ Có thể làm song song / sau Phase 1–2.
 #### #14 — RUN tạo nhiều ffmpeg cùng lúc; thiếu timeout RTSP (P1)
 
 - [x] Jitter start theo worker + camera
-- [x] Thêm `-timeout` / `-stimeout` / `-rw_timeout` phù hợp bản ffmpeg
+- [x] Probe ffmpeg 1 lần: ≥5 dùng `-timeout`, cũ dùng `-stimeout` (+ luôn `-rw_timeout`; không truyền cả hai)
 - [ ] Sau nhiều chu kỳ STOP/RUN: kiểm `tasklist | findstr ffmpeg` không tăng dần — **T8 máy thật**
 - [ ] Test: T8
 
 **File:** `src/inference_engine/camera_processor.py`, `gpu_video_decoder.py`, `config.py`  
-**Sửa code:** 2026-10-14 — jitter 0..2.5s; RTSP timeout 5s (us)
+**Sửa code:** 2026-10-14 — jitter 0..2.5s; RTSP timeout 5s; probe chọn timeout flag
 
 #### #21 — 26 cam/máy vs batch 24 + hold_full_batch (P2)
 
@@ -428,3 +431,4 @@ Phase 3:  #12, #26 (nhanh) → còn lại tùy ưu tiên vận hành
 | 2026-10-14 | Phase 2 còn lại: #4 hot-apply, #15 fencing, #6 $$NOW |
 | 2026-10-14 | #12 bỏ AREA_NAME; #14 jitter+RTSP timeout; #18 log theo worker |
 | 2026-10-14 | Env Mongo/replica; bỏ TensorRT path; #23–#26; watchdog để sau |
+| 2026-10-14 | FFmpeg probe timeout flag; status None khi Mongo lỗi; reconcile CameraManager |

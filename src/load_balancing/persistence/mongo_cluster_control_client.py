@@ -96,43 +96,38 @@ class MongoClusterControlClient:
             logger.error(f"Error updating cluster control: {e}")
             raise
     
-    async def get_current_status(self) -> Dict[str, Any]:
+    async def get_current_status(self) -> Optional[Dict[str, Any]]:
         """
-        Get current cluster control status document.
-        
+        Đọc trạng thái cluster control.
+
         Returns:
-            dict with desired_state, token, timestamp, etc.
-            Returns default if document doesn't exist.
+            dict nếu OK (doc tồn tại hoặc chưa có → default STOP/token=0).
+            None nếu lỗi đọc Mongo (không được coi như STOP thật).
         """
         col = get_collection(self._status_collection)
-        
+
         try:
             doc = await col.find_one({"_id": "inference_status"}, {"_id": 0})
-            
+
             if doc:
                 return {
                     "desired_state": doc.get("desired_state", "STOP"),
                     "token": doc.get("token", 0),
                     "timestamp": doc.get("timestamp"),
-                    "updated_by_worker": doc.get("updated_by_worker")
+                    "updated_by_worker": doc.get("updated_by_worker"),
                 }
-            else:
-                # Return default if no document exists yet
-                return {
-                    "desired_state": "STOP",
-                    "token": 0,
-                    "timestamp": None,
-                    "updated_by_worker": None
-                }
-                
-        except Exception as e:
-            logger.error(f"Error getting current status: {e}")
+
+            # Doc chưa tồn tại — khác với lỗi đọc
             return {
                 "desired_state": "STOP",
                 "token": 0,
                 "timestamp": None,
-                "updated_by_worker": None
+                "updated_by_worker": None,
             }
+
+        except Exception as e:
+            logger.error(f"Error getting current status: {e}")
+            return None
     
     async def write_ack(
         self, 

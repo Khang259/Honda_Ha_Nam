@@ -247,6 +247,8 @@ class RuntimeService:
                 MongoClusterControlClient,
             )
             status = await MongoClusterControlClient().get_current_status()
+            if status is None:
+                return False
             return str(status.get("desired_state", "STOP")).upper() == "RUN"
         except Exception:
             return False
@@ -258,20 +260,27 @@ class RuntimeService:
         my_camera_ids: Set[int],
     ) -> None:
         """
-        Áp dụng kết quả rebalance lên CameraManager đang chạy:
-        release → remove_camera; claim → add_camera (enabled theo desired_state).
+        Đối soát CameraManager với ownership:
+        managed vs assigned → remove phần thừa, add phần thiếu.
         """
         camera_manager = self._components.get("camera_manager")
         if not camera_manager or not self._worker_manager:
             return
 
-        for camera_id in to_release:
+        managed = set(int(x) for x in camera_manager.get_managed_camera_ids())
+        desired = set(int(x) for x in my_camera_ids)
+        # Gộp delta từ rebalance + lệch thực tế (fencing / callback fail)
+        to_remove = (managed - desired) | {int(x) for x in to_release}
+        to_add = (desired - managed) | {int(x) for x in to_claim}
+        to_add -= to_remove
+
+        for camera_id in sorted(to_remove):
             try:
                 camera_manager.remove_camera(int(camera_id))
             except Exception as e:
                 print(f"remove_camera {camera_id} failed: {e}")
 
-        if to_claim:
+        if to_add:
             configs = await self._worker_manager.get_assigned_camera_configs()
             by_id: Dict[int, Dict[str, Any]] = {}
             for cfg in configs:
@@ -281,7 +290,7 @@ class RuntimeService:
                     continue
 
             enabled = await self._cluster_desired_is_run()
-            for camera_id in to_claim:
+            for camera_id in sorted(to_add):
                 cfg = by_id.get(int(camera_id))
                 if not cfg:
                     print(f"No config for claimed cameraId={camera_id}; skip add")

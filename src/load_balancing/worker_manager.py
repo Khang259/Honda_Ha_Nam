@@ -157,9 +157,13 @@ class WorkerManager:
             and self.assigned_camera_ids
         ):
             logger.debug(
-                "No worker/camera set change (%s workers, %s cameras); skipping rebalance",
+                "No worker/camera set change (%s workers, %s cameras); "
+                "reconcile CameraManager only",
                 len(worker_set),
                 len(camera_set),
+            )
+            await self._notify_assignment_applied(
+                [], [], set(self.assigned_camera_ids)
             )
             return
 
@@ -176,6 +180,8 @@ class WorkerManager:
             logger.warning("No cameras found in database")
             self.last_active_worker_ids = worker_set
             self.last_camera_ids = camera_set
+            self.assigned_camera_ids = set()
+            await self._notify_assignment_applied([], [], set())
             return
 
         assignment = self.assignment_service.calculate_assignment_for_camera_ids(
@@ -192,7 +198,10 @@ class WorkerManager:
         if to_release:
             logger.info(f"Releasing {len(to_release)} cameras: {sorted(to_release)}")
             for camera_id in to_release:
-                await self.assignment_service.release_camera(camera_id)
+                # Chỉ clear DB nếu vẫn là chủ — tránh đụng ownership worker mới (fencing)
+                owner = current_owners.get(int(camera_id))
+                if owner is None or str(owner) == self.worker_id:
+                    await self.assignment_service.release_camera(camera_id)
                 self.fencing_tokens.pop(camera_id, None)
 
         if to_claim:
@@ -204,22 +213,34 @@ class WorkerManager:
         self.last_active_worker_ids = worker_set
         self.last_camera_ids = camera_set
 
-        if self._on_assignment_applied and (to_claim or to_release):
-            try:
-                await self._on_assignment_applied(
-                    sorted(to_claim),
-                    sorted(to_release),
-                    set(my_camera_ids),
-                )
-            except Exception as e:
-                logger.error(
-                    "Assignment apply callback failed: %s", e, exc_info=True
-                )
+        await self._notify_assignment_applied(
+            sorted(to_claim), sorted(to_release), set(my_camera_ids)
+        )
 
         logger.info(
             f"Rebalance completed: {len(self.assigned_camera_ids)} cameras assigned "
             f"to worker {self.worker_id}"
         )
+
+    async def _notify_assignment_applied(
+        self,
+        to_claim: List[int],
+        to_release: List[int],
+        my_camera_ids: Set[int],
+    ) -> None:
+        """Luôn gọi callback để CameraManager đối soát managed vs assigned."""
+        if not self._on_assignment_applied:
+            return
+        try:
+            await self._on_assignment_applied(
+                list(to_claim),
+                list(to_release),
+                set(my_camera_ids),
+            )
+        except Exception as e:
+            logger.error(
+                "Assignment apply callback failed: %s", e, exc_info=True
+            )
 
     async def _claim_cameras(self, camera_ids: List[int]) -> Dict[int, int]:
         tokens = {}
@@ -260,8 +281,8 @@ class WorkerManager:
                     f"no longer owned by worker {self.worker_id}"
                 )
                 invalid_cameras.append(camera_id)
+                # Giữ assigned đến rebalance → to_release có camera → remove_camera chạy
                 self.fencing_tokens.pop(camera_id, None)
-                self.assigned_camera_ids.discard(camera_id)
 
         return invalid_cameras
 

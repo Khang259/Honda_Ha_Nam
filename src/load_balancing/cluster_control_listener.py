@@ -76,6 +76,12 @@ class ClusterControlListener:
         try:
             await self.client.ensure_indexes()
             status = await self.client.get_current_status()
+            if status is None:
+                logger.warning(
+                    "Bootstrap: Mongo status unknown (read error); skip apply"
+                )
+                return
+
             token = int(status.get("token", 0) or 0)
             desired_state = status.get("desired_state", "STOP")
 
@@ -170,6 +176,12 @@ class ClusterControlListener:
         """Đối soát định kỳ với Mongo (nguồn sự thật)."""
         try:
             status = await self.client.get_current_status()
+            if status is None:
+                logger.warning(
+                    "Poll: Mongo status unknown (read error); skip apply"
+                )
+                return
+
             token = int(status.get("token", 0) or 0)
             desired_state = status.get("desired_state", "STOP")
             await self._try_apply(desired_state, token, "poll")

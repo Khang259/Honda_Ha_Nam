@@ -252,20 +252,24 @@ async def get_cluster_status() -> Dict[str, Any]:
     try:
         client = MongoClusterControlClient()
         
-        # Get current status
         status = await client.get_current_status()
-        
-        # Get acks for current token
+        if status is None:
+            return {
+                "code": 1001,
+                "message": "Cluster status unknown (Mongo read error)",
+                "success": False,
+            }
+
         current_token = status.get("token", 0)
         acks = await client.get_acks(current_token)
-        
+
         return {
             "code": 1000,
             "message": "Success",
             "status": status,
             "acks": acks,
             "acks_count": len(acks),
-            "expected_workers": 4  # Can be made dynamic if needed
+            "expected_workers": 4,  # Can be made dynamic if needed
         }
     except Exception as e:
         logger.error(f"Error getting cluster status: {e}")
