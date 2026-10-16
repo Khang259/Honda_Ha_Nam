@@ -13,17 +13,35 @@ from shared.setup_log import setup_logger
 
 logger = setup_logger("gpu_video_decoder", "logs/gpu_decoder/log")
 
-# Cache 1 lần: ffmpeg ≥5 dùng -timeout; bản cũ dùng -stimeout (không truyền cả hai).
+# Cache 1 lần: tên flag (-timeout | -stimeout).
+# Không dùng -rw_timeout: nhiều bản (kể cả 7.x essentials) liệt kê trong -h full
+# nhưng CLI báo "Option rw_timeout not found".
 _rtsp_timeout_flag = None
 _rtsp_timeout_flag_lock = threading.Lock()
 
 
+def _ffmpeg_help_text(*args: str) -> str:
+    try:
+        proc = subprocess.run(
+            ["ffmpeg", "-hide_banner", *args],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        return (proc.stdout or "") + (proc.stderr or "")
+    except Exception:
+        return ""
+
+
+def _help_has_option(help_text: str, option: str) -> bool:
+    """option dạng '-timeout' — khớp dòng help demuxer/full."""
+    name = option.lstrip("-")
+    return bool(re.search(rf"^\s*-{re.escape(name)}\s", help_text, re.MULTILINE))
+
+
 def _resolve_rtsp_timeout_flag() -> str:
-    """
-    Chọn option RTSP timeout theo phiên bản ffmpeg (probe một lần lúc start).
-    - ffmpeg major >= 5 → '-timeout'
-    - cũ hơn / không parse được → '-stimeout'
-    """
+    """Probe 1 lần demuxer=rtsp / version → '-timeout' hoặc '-stimeout'."""
     global _rtsp_timeout_flag
     if _rtsp_timeout_flag is not None:
         return _rtsp_timeout_flag
@@ -32,32 +50,37 @@ def _resolve_rtsp_timeout_flag() -> str:
         if _rtsp_timeout_flag is not None:
             return _rtsp_timeout_flag
 
-        flag = "-stimeout"
+        flag = "-timeout"
         try:
-            proc = subprocess.run(
-                ["ffmpeg", "-version"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-                check=False,
-            )
-            first_line = (proc.stdout or proc.stderr or "").splitlines()[:1]
-            text = first_line[0] if first_line else ""
-            match = re.search(r"ffmpeg version\s+(\d+)", text, re.IGNORECASE)
-            if match and int(match.group(1)) >= 5:
+            rtsp_help = _ffmpeg_help_text("-h", "demuxer=rtsp")
+            if _help_has_option(rtsp_help, "-timeout"):
                 flag = "-timeout"
-            logger.info(
-                "FFmpeg RTSP timeout option=%s (version line=%r)",
-                flag,
-                text[:80],
-            )
+            elif _help_has_option(rtsp_help, "-stimeout"):
+                flag = "-stimeout"
+            else:
+                ver = _ffmpeg_help_text("-version")
+                match = re.search(r"ffmpeg version\s+(\d+)", ver, re.IGNORECASE)
+                flag = "-timeout" if match and int(match.group(1)) >= 5 else "-stimeout"
+            logger.info("FFmpeg RTSP timeout flag=%s", flag)
         except Exception as e:
             logger.warning(
-                "FFmpeg version probe failed (%s); using %s", e, flag
+                "FFmpeg RTSP timeout probe failed (%s); using %s", e, flag
             )
 
         _rtsp_timeout_flag = flag
         return _rtsp_timeout_flag
+
+
+def resolve_ffmpeg_rtsp_timeout_args(timeout_us: str) -> list:
+    """Args chèn trước -i, ví dụ ['-timeout', '5000000']. Không có -rw_timeout."""
+    return [_resolve_rtsp_timeout_flag(), str(timeout_us)]
+
+
+def reset_ffmpeg_rtsp_timeout_probe_cache() -> None:
+    """Chỉ dùng cho unit test."""
+    global _rtsp_timeout_flag
+    with _rtsp_timeout_flag_lock:
+        _rtsp_timeout_flag = None
 
 
 class GPUVideoDecoder:
@@ -114,16 +137,15 @@ class GPUVideoDecoder:
             return
 
         timeout_us = str(int(FFMPEG_RTSP_TIMEOUT_US))
-        # -rw_timeout luôn dùng; chỉ thêm -timeout HOẶC -stimeout (probe 1 lần).
-        rtsp_flag = _resolve_rtsp_timeout_flag()
+        # Chỉ -timeout hoặc -stimeout (probe 1 lần). Không dùng -rw_timeout.
+        timeout_args = resolve_ffmpeg_rtsp_timeout_args(timeout_us)
         cmd = [
             "ffmpeg",
             "-hwaccel", "cuda",
             "-rtsp_transport", "tcp",
             "-fflags", "nobuffer",
             "-flags", "low_delay",
-            "-rw_timeout", timeout_us,
-            rtsp_flag, timeout_us,
+            *timeout_args,
             "-i", self.rtsp_url,
             "-f", "rawvideo",
             "-pix_fmt", "bgr24",

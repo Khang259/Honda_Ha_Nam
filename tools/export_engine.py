@@ -6,5 +6,5 @@ if platform.system() == 'Windows':
 
 from ultralytics import YOLO
 
-model = YOLO("ModelHN_160326_02.pt")
+model = YOLO("ModelHN_240326_01.pt")
 model.export(format="engine", device=0, half=True, dynamic=True, batch=24, imgsz=[480, 640])

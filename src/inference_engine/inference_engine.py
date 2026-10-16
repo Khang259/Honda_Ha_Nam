@@ -149,7 +149,7 @@ class InferenceEngine(threading.Thread):
     def _load_model(self):
         """Load YOLO model instance và tạo CUDA streams."""
         try:
-            self.model = YOLO(self.model_path, verbose=False)
+            self.model = YOLO(self.model_path, task="detect", verbose=False)
             with torch.cuda.device(self.device_id):
                 self.streams = [torch.cuda.Stream() for _ in range(self.num_streams)] #create CUDA streams
         except Exception as e:

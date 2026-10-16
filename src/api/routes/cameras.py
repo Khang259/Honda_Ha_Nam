@@ -216,34 +216,6 @@ async def get_cameras_enable_state() -> Dict[str, Any]:
     data = api_state.camera_manager.get_cameras_enable_snapshot()
     return {"code": 1000, "message": "Success", "data": data}
 
-@router.get("/{zone}")
-async def get_zone(zone: str) -> Dict[str, Any]:
-    """Trả về snapshot state + flags của các node_id trong zone."""
-    if not api_state.state_manager:
-        return {"error": "State manager not initialized", "success": False}
-    
-    # Lấy tất cả node_ids từ validate_pairs của StateManager
-    zone_node_ids = set()
-    for pair in api_state.state_manager.validate_pairs:
-        for node_id in pair:
-            zone_node_ids.add(node_id)
-    
-    if not zone_node_ids:
-        return {"error": "No pairs loaded in state manager", "success": False}
-    
-    nodes = {}
-    flags = {}
-    for node_id in zone_node_ids:
-        if node_id in api_state.state_manager.points:
-            data = api_state.state_manager.points[node_id]
-            nodes[node_id] = {
-                "state": data["state"],
-                "flag": data["flag"]
-            }
-            flags[node_id] = data["flag"]
-    
-    return {"success": True, "zone": zone.upper(), "nodes": nodes, "flags": flags}
-
 @router.get("/cluster-status")
 async def get_cluster_status() -> Dict[str, Any]:
     """Get current cluster control status + worker acknowledgments."""
@@ -278,3 +250,32 @@ async def get_cluster_status() -> Dict[str, Any]:
             "message": f"Error: {str(e)}",
             "success": False
         }
+
+
+@router.get("/{zone}")
+async def get_zone(zone: str) -> Dict[str, Any]:
+    """Trả về snapshot state + flags của các node_id trong zone."""
+    if not api_state.state_manager:
+        return {"error": "State manager not initialized", "success": False}
+    
+    # Lấy tất cả node_ids từ validate_pairs của StateManager
+    zone_node_ids = set()
+    for pair in api_state.state_manager.validate_pairs:
+        for node_id in pair:
+            zone_node_ids.add(node_id)
+    
+    if not zone_node_ids:
+        return {"error": "No pairs loaded in state manager", "success": False}
+    
+    nodes = {}
+    flags = {}
+    for node_id in zone_node_ids:
+        if node_id in api_state.state_manager.points:
+            data = api_state.state_manager.points[node_id]
+            nodes[node_id] = {
+                "state": data["state"],
+                "flag": data["flag"]
+            }
+            flags[node_id] = data["flag"]
+    
+    return {"success": True, "zone": zone.upper(), "nodes": nodes, "flags": flags}

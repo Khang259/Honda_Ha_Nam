@@ -13,7 +13,7 @@ USE_GPU_DECODE = True
 GPU_DECODE_BUFFER_SIZE = 10**6  # 1MB buffer for subprocess pipe
 FFMPEG_RECONNECT_DELAY = 1.0    # seconds
 FFMPEG_MAX_RETRIES = 5
-# RTSP socket timeout (microseconds) — ffmpeg -rw_timeout + (-timeout | -stimeout)
+# RTSP socket timeout (microseconds) — ffmpeg demuxer -timeout hoặc -stimeout
 FFMPEG_RTSP_TIMEOUT_US = 5_000_000  # 5s
 # Jitter khi mở nhiều ffmpeg cùng lúc (RUN / start threads)
 CAMERA_START_JITTER_MAX_SECONDS = 2.5
@@ -22,4 +22,4 @@ INFERENCE_MAX_QUEUE_SIZE = 500
 INFERENCE_MAX_BATCH_SIZE = 24
 INFERENCE_BATCH_TIMEOUT = 1 
 INFERENCE_NUM_STREAMS = 3
-MODEL_PATH = "models/ModelHN_240326_03_Yolo26s_150526_01.engine"
+MODEL_PATH = "models/ModelHN_240326_01.engine"
